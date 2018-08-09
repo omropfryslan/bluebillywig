@@ -1,0 +1,204 @@
+<?php
+
+/**
+ * @file
+ * The Blue Billywig module provides core functionality for intergartion of the BB-VMS into Drupal.
+ * This module makes use of the VMS-RPC to comunicatie with the VMS-API.
+ */
+
+/**
+ * Implements hook_permission().
+ */
+function bluebillywig_permission() {
+  return array(
+    'administer bluebillywig settings' => array(
+      'title' => t('Administer Blue Billywig settings'),
+      'description' => t('Access the global settings Blue Billywig Mediaglue module.'),
+    ),
+  );
+}
+
+/**
+ * Implements hook_menu().
+ */
+function bluebillywig_menu() {
+  $base = 'admin/config/media/bluebillywig';
+
+  $items[$base] = array(
+    'title' => 'Bluebillywig settings',
+    'description' => t('Configure your Blue Billywig VMS publication, shared secret, default player etc.'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('bluebillywig_admin_settings'),
+    'type' => MENU_NORMAL_ITEM,
+    'access arguments' => array('administer bluebillywig settings'),
+    'file' => 'includes/bluebillywig.admin.inc',
+  );
+
+  return $items;
+}
+
+/**
+ * Execute a VMS API request.
+ */
+function bluebillywig_executeActionVms($entity, $arProps = NULL, $returnType = 'json', $jsonDecode = TRUE) {
+  $path = _bluebillywig_getRpcPath();
+  require_once $path . '/bootstrap.php';
+
+  $publicationHost = variable_get('bluebillywig_publication_hostname', NULL);
+  $sharedSecret = variable_get('bluebillywig_shared_secret', NULL);
+
+  if (!empty($publicationHost) && !empty($sharedSecret)) {
+    try {
+      $vms = new VMSRpc('https://' . $publicationHost, NULL, NULL, $sharedSecret);
+    }
+    catch (Exception $e) {
+      return FALSE;
+    }
+
+    if ($vms && !empty($entity)) {
+      $result = NULL;
+      $eid = NULL;
+
+      switch ($returnType) {
+        case "json":
+        case "xml":
+          if (isset($arProps['id'])) {
+            $eid = $arProps['id'];
+            unset($arProps['id']);
+          }
+          $result = $vms->$returnType($entity, $eid, $arProps);
+          break;
+
+        case "raw":
+          if (isset($arProps['action'])) {
+            $action = $arProps['action'];
+            unset($arProps['action']);
+            $result = $vms->doAction($entity, $action, $arProps);
+          }
+          break;
+
+        default:
+          break;
+      }
+
+      if ($returnType == 'json' && $jsonDecode == TRUE) {
+        $result = json_decode($result, TRUE);
+      }
+
+      return $result;
+    }
+  }
+}
+
+/**
+ *
+ */
+function bluebillywig_get_token() {
+  $path = _bluebillywig_getRpcPath();
+  require_once $path . '/bootstrap.php';
+
+  $publicationHost = variable_get('bluebillywig_publication_hostname', NULL);
+  $sharedSecret = variable_get('bluebillywig_shared_secret', NULL);
+
+  if (!empty($publicationHost) && !empty($sharedSecret)) {
+    try {
+      $vms = new VMSRpc('https://' . $publicationHost, NULL, NULL, $sharedSecret);
+    }
+    catch (Exception $e) {
+      return FALSE;
+    }
+
+    if ($vms) {
+      $result = NULL;
+      $result = $vms->calculateRequestToken();
+      return $result;
+    }
+  }
+}
+
+/**
+ * Check wether the VMS credentials are valid.
+ */
+function _bluebillywig_checkVmsCredentials($publicationHost, $sharedSecret) {
+  $path = _bluebillywig_getRpcPath();
+  require_once $path . '/bootstrap.php';
+
+  try {
+    $vms = new VMSRpc('https://' . $publicationHost, NULL, NULL, $sharedSecret);
+    $r = $vms->sapi('publication', NULL, "GET");
+
+    if ($r['code'] < 400) {
+      // @todo maybe add a check on the publicationname.
+      return TRUE;
+    }
+  }
+  catch (Exception $e) {
+    return FALSE;
+  }
+  return FALSE;
+}
+
+/**
+ * Get the path to the RPC library.
+ * If not set yet, determine the path and set it.
+ */
+function _bluebillywig_getRpcPath() {
+
+  if (!($path = variable_get('bluebillywig_vmsrpc_path', FALSE))) {
+    $files = drupal_system_listing('/^vmsrpc\.class\.php$/', 'libraries', 'filename', 0);
+    if (isset($files['vmsrpc.class.php'])) {
+      $path = dirname($files['vmsrpc.class.php']->uri);
+      variable_set('bluebillywig_vmsrpc_path', $path);
+    }
+  }
+  return $path;
+}
+
+/**
+ * Get the cached VMS playouts.
+ */
+function bluebillywig_get_cached_playouts() {
+  $options = cache_get('bluebillywig_playouts_list');
+
+  if (empty($options->data)) {
+    // Not cached yet.
+    $options = bluebillywig_set_cached_playouts();
+
+    if (empty($options)) {
+      $options = array(
+        'default' => t('Default'),
+      );
+    }
+  }
+  else {
+    $options = $options->data;
+  }
+  return $options;
+}
+
+/**
+ * Retrieve the active playouts form the VMS and cache them.
+ */
+function bluebillywig_set_cached_playouts() {
+  $options = NULL;
+
+  // Get the playouts for this publication.
+  $arProps = array('action' => 'list');
+  $r = bluebillywig_executeActionVms('playouts', $arProps, 'xml');
+
+  $dom = new DOMDocument();
+  if (!empty($r) && $dom->loadXML($r)) {
+    $options = array();
+    $playouts = $dom->getElementsByTagName('playout');
+    foreach ($playouts as $playout) {
+      if ($playout->getAttribute('status') == 'active') {
+        $options[$playout->getAttribute('label')] = ucfirst(str_replace('_', ' ', $playout->getAttribute('name')));
+      }
+    }
+
+    if (!empty($options)) {
+      cache_set('bluebillywig_playouts_list', $options);
+    }
+  }
+  return $options;
+}

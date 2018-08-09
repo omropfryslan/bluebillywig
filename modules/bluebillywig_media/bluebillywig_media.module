@@ -1,0 +1,675 @@
+<?php
+
+/**
+ * @file
+ * Provides a stream wrapper and formatters appropriate for accessing and
+ * displaying media (video/audio) from a Blue Billywig VMS.
+ */
+
+require_once dirname(__FILE__) . '/includes/bluebillywig_media.formatters.inc';
+
+/**
+ * Implements hook_media_internet_providers().
+ */
+function bluebillywig_media_media_internet_providers() {
+  return array(
+    'MediaInternetBlueBillywigHandler' => array(
+      'title' => t('Blue Billywig VMS'),
+    ),
+  );
+}
+
+/**
+ * Implements hook_media_parse().
+ */
+function bluebillywig_media_media_parse($embed_code) {
+  $handler = new MediaInternetBlueBillywigHandler($embed_code);
+  return $handler->parse($embed_code);
+}
+
+/**
+ * Implements hook_media_parse().
+ */
+function bluebillywig_media_media_validid($embed_code) {
+  $handler = new MediaInternetBlueBillywigHandler($embed_code);
+
+  $publicationHost = variable_get('bluebillywig_publication_hostname', NULL);
+  if (empty($publicationHost)) {
+    return FALSE;
+  }
+
+  // Default VMS domain.
+  $domainPattern = 'bbvms\.com';
+  if (!strpos($publicationHost, 'bbvms.com')) {
+    $parts = explode('.', $publicationHost);
+    $l = count($parts);
+    $domainPattern = $parts[$l - 2] . '\.' . $parts[$l - 1];
+  }
+
+  $pattern = '@' . $domainPattern . '/p/(.*?)\/c\/(\d+)@';
+  preg_match($pattern, $embed_code, $matches);
+  if (isset($matches[2]) && $handler->validId($matches[2])) {
+    return TRUE;
+  }
+
+  return FALSE;
+}
+
+/**
+ * Implements hook_theme().
+ */
+function bluebillywig_media_theme($existing, $type, $theme, $path) {
+  return array(
+    'bluebillywig_media_video' => array(
+      'variables' => array('uri' => NULL, 'options' => array()),
+      'file' => 'bluebillywig_media.theme.inc',
+      'path' => $path . '/themes',
+      'template' => 'bluebillywig-media',
+    ),
+    'bluebillywig_media_audio' => array(
+      'variables' => array('uri' => NULL, 'options' => array()),
+      'file' => 'bluebillywig_media.theme.inc',
+      'path' => $path . '/themes',
+      'template' => 'bluebillywig-media',
+    ),
+    'bluebillywig_media_video_iframe' => array(
+      'variables' => array('uri' => NULL, 'options' => array('width' => '768', 'height' => '432')),
+      'file' => 'bluebillywig_media.theme.inc',
+      'path' => $path . '/themes',
+      'template' => 'bluebillywig-media-iframe',
+    ),
+    'bluebillywig_media_audio_iframe' => array(
+      'variables' => array('uri' => NULL, 'options' => array('width' => '768', 'height' => '432')),
+      'file' => 'bluebillywig_media.theme.inc',
+      'path' => $path . '/themes',
+      'template' => 'bluebillywig-media-iframe',
+    ),
+  );
+}
+
+/**
+ * Implements hook_stream_wrappers().
+ */
+function bluebillywig_media_stream_wrappers() {
+  return array(
+    'bluebillywig' => array(
+      'name' => t('Blue Billywig mediaclips'),
+      'class' => 'MediaBlueBillywigStreamWrapper',
+      'description' => t('Media provided by Blue Billywig.'),
+      'type' => STREAM_WRAPPERS_READ_VISIBLE,
+    ),
+  );
+}
+
+/**
+ * Implements hook_file_mimetype_mapping_alter().
+ *
+ * Register the video/bluebillywig mimetype.
+ */
+function bluebillywig_media_file_mimetype_mapping_alter(&$mapping) {
+  $mapping['mimetypes'][] = 'audio/bluebillywig';
+  $mapping['mimetypes'][] = 'video/bluebillywig';
+}
+
+/**
+ * Implements hook_media_browser_plugin_info().
+ *
+ * Blue Billywig media browser tab.
+ */
+function bluebillywig_media_media_browser_plugin_info() {
+  $info['bluebillywig'] = array(
+    'title' => t('Blue Billywig VMS'),
+    'class' => 'MediaBlueBillywigBrowser',
+  );
+
+  return $info;
+}
+
+/**
+ *
+ */
+function bluebillywig_media_search($searchCriteria = array(), $raw = FALSE) {
+
+  // Let sort depend on what's set in the table header.
+  $sort = 'id desc';
+  if (isset($_GET['order'])) {
+    switch ($_GET['order']) {
+      case "ID":
+        $sort = 'id ' . $_GET['sort'];
+        break;
+
+      case "Title":
+        $sort = 'titleSort ' . $_GET['sort'];
+        break;
+
+      case "Type":
+        $sort = 'typeSort ' . $_GET['sort'];
+        break;
+
+      case "Published":
+        $sort = 'published_date ' . $_GET['sort'];
+        break;
+
+      case "Created":
+        $sort = 'createddate ' . $_GET['sort'];
+        break;
+    }
+  }
+
+  // Take $searchCriteria['query'] and make it into a "smart" Solr query.
+  $query = bluebillywig_media_build_query($searchCriteria['query']);
+
+  $arProps = array(
+    'query' => $query,
+    'limit' => (isset($searchCriteria['limit']) ? $searchCriteria['limit'] : '15'),
+    'offset' => (isset($searchCriteria['offset']) ? $searchCriteria['offset'] : '0'),
+    'sort' => $sort,
+  );
+  $r = bluebillywig_executeActionVms('search', $arProps);
+  return $r;
+}
+
+/**
+ * Request for microdata tags for a mediaclip.
+ */
+function bluebillywig_media_get_microdata($id, $playout, $md = TRUE, $og = TRUE) {
+  $qs = array(
+    'c' => $id,
+    'p' => $playout,
+    'MD' => ($md == TRUE ? 1 : 0),
+  );
+
+  $hostName = variable_get('bluebillywig_publication_hostname', '');
+  $r = drupal_http_request('http://' . $hostName . '/microdata/?' . http_build_query($qs));
+
+  if ($r->code == '200' && !empty($r->data)) {
+    return $r->data;
+  }
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ *
+ * Hook for media module version 7.x-2.0-alpha3
+ */
+function bluebillywig_media_form_media_format_form_alter(&$form, &$form_state) {
+  return bluebillywig_media_playout_form_field($form, $form_state);
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ *
+ * Hook for media module version 7.x-2.x-dev.
+ */
+function bluebillywig_media_form_media_wysiwyg_format_form_alter(&$form, &$form_state) {
+  return bluebillywig_media_playout_form_field($form, $form_state);
+}
+
+/**
+ * Add an extra playout select field, used as extra parameter for embedding a video.
+ *
+ * @todo Take a further onto previewing the player within this dialog.
+ * @todo Take a further onto the link to the edit-entity-form.
+ */
+function bluebillywig_media_playout_form_field(&$form, &$form_state) {
+  if (isset($form_state['build_info']['args'][0]) && strpos($form_state['build_info']['args'][0]->filemime, 'bluebillywig')) {
+
+    drupal_add_js(drupal_get_path('module', 'bluebillywig_media') . '/js/bluebillywig_media.form.js');
+
+    // Get the playouts for this publication.
+    $options = bluebillywig_get_cached_playouts();
+    if (empty($options)) {
+      $options = array(
+        'default' => t('Default'),
+      );
+    }
+
+    // Add a playout selector.
+    $form['options']['bb_playout'] = array(
+      '#type' => 'select',
+      '#title' => t('Playout'),
+      '#maxlength' => 255,
+      '#required' => FALSE,
+      '#options' => $options,
+      '#default_value' => variable_get('bluebillywig_default_playout', 'default'),
+      '#description' => t('Select a playout for displaying the media (video/audio) within the page.'),
+    );
+
+    // Check the status of the video.
+    $pattern = '@bbvms\.com/p/(.*?)\/c\/(\d+)@';
+    preg_match($pattern, $form_state['build_info']['args'][0]->uri, $matches);
+    if (isset($matches[2]) && is_numeric($matches[2])) {
+      $id = $matches[2];
+
+      // Get the mediaclip data.
+      $mcData = bluebillywig_executeActionVms('mediaclip', array("id" => $id));
+
+      /*
+      //Add a link to the edit the file-entity form.
+      $form['bb_mc'] = array(
+      '#type' => 'fieldset',
+      '#title' => t('Manage mediaclip'),
+      '#collapsible' => TRUE,
+      '#collapsed' => ($mcData['status'] == 'draft' ? FALSE : TRUE),
+      );
+      $form['bb_mc']['edit'] = array(
+      '#markup' => '<div>'.l(t('Edit media'), 'file/'. $form_state['file']->fid.'/edit',
+      array('attributes'=> array('target' =>'_bbEdit'))).'</div>',
+      );*/
+
+      if ($mcData['status'] == 'draft') {
+        $form['options']['bb_mc_status'] = array(
+          '#markup' => '<i>Note the status of the media is still ' . ($mcData['status'] == 'draft' ? '<font color="#f00">' . $mcData['status'] . '</font>' : $mcData['status']) . '.</i>',
+        );
+      }
+      if (empty($mcData['assets'])) {
+        $form['options']['bb_mc_playable'] = array(
+          '#markup' => '<font color="#f00"><i>Note the media isn\'t playable yet. The media is now being transcoded and available within a few minutes.</i>
+                                  <br/>
+                                  <strong><a href="#" onclick="javascript: location.reload();" style="color:#ff0000;">Check whether the media is playable now.</a></strong></font>',
+        );
+      }
+    }
+    return $form;
+  }
+}
+
+/**
+ * Implements hook_media_token_to_markup_alter().
+ *
+ * Hook for support of the media module version 7.x-2.0-alpha3
+ */
+function bluebillywig_media_media_token_to_markup_alter(&$element, $tag_info, $settings) {
+  return bluebillywig_media_media_wysiwyg_token_to_markup_alter($element, $tag_info, $settings);
+}
+
+/**
+ * Implements hook_media_wysiwyg_token_to_markup_alter().
+ *
+ * Used to change the default playout with a selected playout.
+ */
+function bluebillywig_media_media_wysiwyg_token_to_markup_alter(&$element, $tag_info, $settings) {
+
+  if (isset($element['content']['file']['#uri']) && strpos($element['content']['file']['#file']->filemime, 'bluebillywig')) {
+    $pattern = '@/p\/?([^/]+)@';
+    preg_match($pattern, $element['content']['file']['#uri'], $matches);
+
+    if (!empty($matches) && !empty($tag_info['fields']['bb_playout'])) {
+      // Replace the default playout in the uri, with the selected playout, as saved within the node.
+      $element['content']['file']['#uri'] = str_replace($matches[0], '/p/' . $tag_info['fields']['bb_playout'], $element['content']['file']['#uri']);
+    }
+  }
+}
+
+/**
+ * Builds "smart" Solr query using base query terms.
+ */
+function bluebillywig_media_build_query($baseQuery) {
+  /**
+   * generates VMS search query
+   */
+
+  $query = 'type:mediaclip AND (mediatype:video OR mediatype:audio)';
+
+  if ($categories = variable_get('bluebillywig_default_keywords')) {
+    $categories_list = explode(',', $categories);
+    $subqueries = array();
+
+    foreach ($categories_list as $cat) {
+      $subqueries[] = 'cat:"' . trim($cat) . '"';
+    }
+
+    if (!empty($subqueries)) {
+      $query .= ' AND (' . implode(' AND ', $subqueries) . ')';
+    }
+  }
+
+  if (preg_match('@^[a-z]+\:@', $baseQuery)) {
+    // Support direct field queries.
+    $query .= ' AND (' . $baseQuery . ')';
+  }
+  else {
+    $query .= ' AND (';
+    $query .= $baseQuery;
+    $query .= ' OR ' . $baseQuery . '*';
+    $query .= ' OR originalfilename:' . $baseQuery . '*';
+    $query .= ' OR titleSort:' . $baseQuery . '*';
+    $query .= ')';
+  }
+
+  return $query;
+}
+
+/**
+ * Provides a form for adding media items from Blue Billywig search.
+ */
+function media_bluebillywig_add($form, &$form_state = array()) {
+  $resultsPerPage = 12;
+  module_load_include('inc', 'media', 'includes/media.browser');
+
+  // If bluebillywig_upload is installed include it's form here.
+  if (module_exists('bluebillywig_upload')) {
+    $form['bbupload'] = array(
+      '#type' => 'fieldset',
+      '#title' => t('Upload'),
+      '#collapsible' => TRUE,
+      '#collapsed' => TRUE,
+    );
+    $form['bbupload']['uploader'] = bluebillywig_upload_form();
+    $form['bbupload']['metadata'] = bluebillywig_upload_metadata_form();
+  }
+
+  $form['#attached']['css'][] = drupal_get_path('module', 'bluebillywig_media') . '/css/bluebillywig_media.css';
+
+  // Our search term can come from the form, or from the pager.
+  $term = isset($form_state['input']['bbsearch']) ? $form_state['input']['bbsearch'] : (isset($_GET['bbsearch']) ? $_GET['bbsearch'] : '');
+  if (empty($term)) {
+    $term = 'type:mediaclip';
+  }
+
+  $form['bbsearch'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Search'),
+    '#description' => t('Input a phrase or tags to search.'),
+    '#default_value' => '',
+  );
+  $form['apply'] = array(
+    '#type' => 'button',
+    '#value' => t('Search'),
+  );
+
+  $page = isset($_GET['page-bb']) ? $_GET['page-bb'] : 0;
+  if (isset($form_state['input']['bbsearch'])) {
+    // Reset the pager when we press apply.
+    $page = 0;
+  }
+  if (!empty($term)) {
+    $search = bluebillywig_media_search(array('query' => $term, 'limit' => $resultsPerPage, 'offset' => $page * $resultsPerPage), TRUE);
+  }
+  $form['bbsearchinfo'] = array();
+  $form['videos']['#prefix'] = '<div id="container"><div id="scrollbox"><div id="media-browser-library-list" class="media-list-thumbnails">';
+  $form['videos']['#suffix'] = '</div><div id="status"></div></div></div>';
+
+  $empty = FALSE;
+  $files = array();
+  if (!isset($search['items']) ||  empty($search['items'])) {
+    $empty = TRUE;
+  }
+  else {
+    $firstOnPage = $search['offset'] + 1;
+    $lastOnPage = $search['offset'] + count($search['items']);
+    $form['bbsearchinfo'] = array(
+      '#markup' => '<div>' . t('Found') . ' ' . $search['numfound'] . ' clips. ' . t('Showing') . ' clips ' . $firstOnPage . '-' . $lastOnPage . '<br/>
+                        </div>',
+    );
+
+    $header = array(array('data' => t('Mediaclip-id'), 'field' => 'id'),
+      t('Thumbnail'),
+                    array('data' => t('Title'), 'field' => 'titleSort', 'sort'),
+                    array('data' => t('Type'), 'field' => 'typeSort', 'sort'),
+                    array('data' => t('Status'), 'field' => 'statusSort', 'sort'),
+                    array('data' => t('Playable')),
+                    array('data' => t('Published'), 'field' => 'published_date', 'sort'),
+                    array('data' => t('Created'), 'field' => 'createddate', 'sort' => 'desc'),
+    );
+
+    $rows = array();
+
+    $publicationHost = variable_get('bluebillywig_publication_hostname', NULL);
+    $playout = variable_get('bluebillywig_default_playout', 'default');
+
+    $rpcToken = bluebillywig_get_token();
+    foreach ($search['items'] as $item) {
+      // Prepare some media data.
+      $title = (isset($item['title']) ? $item['title'] : $item['originalfilename']);
+      $thumbnail = 'https://' . $publicationHost . '/mediaclip/' . $item['id'] . '/spthumbnail/100/56.jpg?rpctoken=' . $rpcToken;
+      // $url = 'http://' . $publicationHost . '/p/' . $playout . '/c/' . $item['id'] . '.html';
+      $url = 'https://' . $publicationHost . '/p/%PLAYOUT%/c/' . $item['id'] . '.html';
+
+      // Preload the file objects.
+      try {
+        $uri = media_parse_to_uri($url);
+      }
+      catch (Exception $e) {
+        // Ignore invalid videos.
+        continue;
+      }
+
+      $file = file_uri_to_object($uri);
+      $file->type = 'video';
+      if ($item['mediatype'] == 'audio') {
+        $file->filemime = 'audio/bluebillywig';
+        $file->type = 'audio';
+      }
+
+      $files[$uri] = $file;
+
+      // Prepare the table rows.
+      $rows[] = array($item['id'],
+        theme('image', array(
+          'path' => $thumbnail,
+          'alt' => $title,
+          'title' => $title,
+          'width' => '100',
+          'height' => '56',
+          'attributes' => NULL,
+        )),
+        l('<div class="media-item">' . $title . '</div>', 'media/browser', array(
+          'html' => TRUE,
+          'attributes' => array(
+            'data-uri' => $uri,
+          ),
+          'query' => array('render' => 'media-popup', 'uri' => $uri),
+        )),
+        ucfirst($item['mediatype']),
+        ucfirst($item['status']),
+        (!empty($item['assets']) ? 'Yes' : 'No'),
+        (!empty($item['published_date']) ? format_date(strtotime($item['published_date'])) : '-'),
+        format_date(strtotime($item['createddate'])),
+      );
+    }
+
+    $form['videos']['#markup'] = theme('table', array('header' => $header, 'rows' => $rows));
+  }
+
+  if ($empty) {
+    $form['empty'] = array(
+      '#markup' => '<div class="empty-message">' . t('No videos match your search criteria. Please try again.') . '</div>',
+    );
+  }
+
+  $query = $_GET;
+  if ($term !== '') {
+    $query['bbsearch'] = $term;
+  }
+
+  $dest = $query['q'];
+  unset($query['q']);
+  $prev = $next = '';
+  if ($page) {
+    $query['page-bb'] = $page - 1;
+    $prev = l(t('previous'), $dest, array('query' => $query, 'fragment' => 'media-tab-bluebillywig'));
+  }
+  $query['page-bb'] = $page + 1;
+  if (!$empty) {
+    if ($search['numfound'] > $lastOnPage) {
+      $next = l(t('next'), $dest, array('query' => $query, 'fragment' => 'media-tab-bluebillywig'));
+    }
+  }
+
+  $form['pager'] = array(
+    '#markup' => $prev . ' ' . $next,
+  );
+
+  $form['submitted-video'] = array(
+    '#type' => 'hidden',
+    '#default_value' => FALSE,
+  );
+
+  $form['playout'] = array(
+    '#type' => 'select',
+    '#title' => t('The default playout'),
+    '#maxlength' => 255,
+    '#required' => FALSE,
+    '#disabled' => (variable_get('bluebillywig_shared_secret', '') == '' ? TRUE : FALSE),
+    '#options' => bluebillywig_get_cached_playouts(),
+    '#default_value' => variable_get('bluebillywig_default_playout', 'default'),
+    '#description' => t('Select a default playout. This playout will be selected by default when embedding a video.'),
+  );
+
+  // Add the files to JS so that they are accessible inside the browser.
+  drupal_add_js(array('media' => array('files' => $files)), 'setting');
+
+  // Add media browser javascript and CSS.
+  drupal_add_js(drupal_get_path('module', 'bluebillywig_media') . '/js/bluebillywig_media.browser.js');
+
+  $form['actions'] = array('#type' => 'actions');
+  $form['actions']['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Submit'),
+  );
+  return $form;
+}
+
+/**
+ * Allow stream wrappers to have their chance at validation.
+ *
+ * Any module that implements hook_media_parse will have an
+ * opportunity to validate this.
+ *
+ * @see media_parse_to_uri()
+ */
+function media_bluebillywig_add_validate($form, &$form_state) {
+  if ($form_state['values']['op'] == t('Search')) {
+    return;
+  }
+
+  if ($form_state['values']['op'] == t('Save')) {
+    return;
+  }
+
+  $uri = $form_state['values']['submitted-video'];
+  $playout = $form_state['values']['playout'];
+  $uri = str_replace('%PLAYOUT%', $playout, $uri);
+  if (!bluebillywig_media_media_validid($uri)) {
+    form_set_error('url', t('The BlueBillywig media-clip ID is invalid, not published or the media-clip was deleted.'));
+    return;
+  }
+
+  try {
+    $file = file_uri_to_object($uri, TRUE);
+  }
+  catch (Exception $e) {
+    form_set_error('url', $e->getMessage());
+    return;
+  }
+
+  if (!$file->uri) {
+    form_set_error('url', t('Please select a video.'));
+    return;
+  }
+
+  if (!empty($form['#validators'])) {
+    $validators = $form['#validators'];
+    // Check for errors. @see media_add_upload_validate calls file_save_upload().
+    // this code is ripped from file_save_upload because we just want the validation part.
+    // Call the validation functions specified by this function's caller.
+    $errors = file_validate($file, $validators);
+
+    if (!empty($errors)) {
+      $message = t('%uri could not be added.', array('%uri' => $uri));
+      if (count($errors) > 1) {
+        $message .= theme('item_list', array('items' => $errors));
+      }
+      else {
+        $message .= ' ' . array_pop($errors);
+      }
+      form_set_error('url', $message);
+      return FALSE;
+    }
+  }
+  // @TODO: Validate that if we have no $uri that this is a valid file to
+  // save. For instance, we may only be interested in images, and it would
+  // be helpful to let the user know they passed the HTML page containing
+  // the image accidentally. That would also save us from saving the file
+  // in the submit step.
+  // This is kinda a hack of the same.
+  // This should use the file_validate routines that the upload form users.
+  // We need to fix the media_parse_to_file routine to allow for a validation.
+}
+
+/**
+ *
+ */
+function media_bluebillywig_add_submit($form, &$form_state) {
+  $uri = $form_state['values']['submitted-video'];
+  $playout = $form_state['values']['playout'];
+
+  $uri = str_replace('%PLAYOUT%', $playout, $uri);
+
+  try {
+    // Save the remote file.
+    $file = file_uri_to_object($uri, TRUE);
+    file_save($file);
+  }
+  catch (Exception $e) {
+    form_set_error('url', $e->getMessage());
+    return;
+  }
+
+  if (!$file->fid) {
+    form_set_error('url', t('The file %file could not be saved. An unknown error has occurred.', array('%file' => $uri)));
+    return;
+  }
+  else {
+    $form_state['file'] = $file;
+  }
+
+  // Redirect to the file edit page after submission.
+  if (file_entity_access('update', $file)) {
+    $destination = array('destination' => 'admin/content/file');
+    if (isset($_GET['destination'])) {
+      $destination = drupal_get_destination();
+      unset($_GET['destination']);
+    }
+    $form_state['redirect'] = array('file/' . $file->fid . '/edit', array('query' => $destination));
+  }
+  else {
+    $form_state['redirect'] = 'admin/content/file';
+  }
+}
+
+/**
+ * Implements hook_media_file_presave().
+ */
+function bluebillywig_media_file_presave($file) {
+
+  if (strpos($file->filemime, 'bluebillywig')) {
+    $publicationHost = variable_get('bluebillywig_publication_hostname', NULL);
+
+    // Default VMS domain.
+    $domainParttern = 'bbvms\.com';
+    if (!strpos($publicationHost, 'bbvms.com')) {
+      $parts = explode('.', $publicationHost);
+      $l = count($parts);
+      $domainParttern = $parts[$l - 2] . '\.' . $parts[$l - 1];
+    }
+
+    $pattern = '@' . $domainParttern . '/p/(.*?)\/c\/(\d+)@';
+    preg_match($pattern, $file->uri, $matches);
+    if (isset($matches[2]) && is_numeric($matches[2])) {
+      $id = $matches[2];
+
+      // Get the mediaclip data.
+      $item = bluebillywig_executeActionVms('mediaclip', array("id" => $id));
+
+      $file->filename = (!empty($item['title']) ? $item['title'] : $item['originalfilename']);
+
+      // Check whether it's audio, is so change the types.
+      if ($item['mediatype'] == 'audio') {
+        $file->filemime = 'audio/bluebillywig';
+        $file->type = 'audio';
+      }
+    }
+  }
+}

@@ -1,0 +1,110 @@
+<?php
+
+/**
+ * @file
+ * Module that provides VMS upload and ingest functionality.
+ */
+
+/**
+ *
+ */
+function bluebillywig_upload_form() {
+  $publicationHost = variable_get('bluebillywig_publication_hostname', NULL);
+  $vmsMediaClipUrl = 'http://' . $publicationHost . '/json/upload';
+
+  // Register custom callback functions for plupload events.
+  drupal_add_js(drupal_get_path('module', 'bluebillywig_upload') . '/js/bluebillywig_upload.js');
+  // Get a one-time token to create an upload time slot.
+  $rpc_token = bluebillywig_get_token();
+  drupal_http_request(url($vmsMediaClipUrl, array('external' => TRUE, 'query' => array('action' => 'reserve', 'rpctoken' => $rpc_token))));
+
+  $form = array(
+    '#type' => 'plupload',
+    '#id' => 'Fileupload',
+    '#name' => 'Fileupload',
+    '#title' => t('Upload media file'),
+    '#description' => t('Upload a local media file directly to your Blue Billywig VMS publication. Edit metadata below. When the upload is finished and the file is readable by the VMS the metadata can be saved '),
+    '#autoupload' => TRUE,
+    '#autosubmit' => TRUE,
+    '#submit_element' => '#uploadsubmit',
+    '#upload_validators' => array(
+      'file_validate_extensions' => array('aac avi f4v flv m4v mp4 mkv mov mp3 mpg mpeg mpeg2 mxf ogv pcm mts ts mts vob wav webm wmv'),
+    ),
+    '#plupload_settings' => array(
+      'runtimes' => 'html5,flash,html4',
+      'url' => url($vmsMediaClipUrl, array('external' => TRUE, 'query' => array('rpctoken' => $rpc_token))),
+      'file_data_name' => 'Filedata',
+      'chunk_size' => '10mb',
+  // 50GB.
+      'max_file_size' => '50000000000b',
+    ),
+  );
+
+  return ($form);
+}
+
+/**
+ *
+ */
+function bluebillywig_upload_metadata_form() {
+  $form['bb_mc_id'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Mediaclip-id'),
+    '#maxlength' => 1024,
+    '#disabled' => TRUE,
+    '#default_value' => NULL,
+  );
+  $form['bb_mc_originalfilename'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Filename'),
+    '#maxlength' => 1024,
+    '#disabled' => TRUE,
+    '#default_value' => NULL,
+  );
+  $form['bb_mc_title'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Title'),
+    '#maxlength' => 1024,
+    '#default_value' => NULL,
+  );
+  $uri_prefix = 'bluebillywig://' . variable_get('bluebillywig_publication_hostname', NULL) . '/p/' . variable_get('bluebillywig_default_playout', 'default') . '/c/';
+  $form['bb_uri_prefix'] = array(
+    '#type' => 'hidden',
+    '#default_value' => $uri_prefix,
+  );
+  $states = array('draft' => 'Draft', 'published' => 'Published');
+  $form['bb_mc_status'] = array(
+    '#type' => 'radios',
+    '#title' => t('Status'),
+    '#default_value' => 'draft',
+    '#options' => $states,
+  );
+  $form['bb_mc_description'] = array(
+    '#type' => 'textarea',
+    '#title' => t('Description'),
+    '#maxlength' => 1024,
+    '#default_value' => NULL,
+  );
+  $form['bb_mc_tags'] = array(
+    '#type' => 'textarea',
+    '#title' => t('Tags'),
+    '#maxlength' => 1024,
+    '#default_value' => NULL,
+  );
+
+  $form['bb_mc_save_on_uploaded'] = array(
+    '#type' => 'checkbox',
+    '#title' => 'Autosave metadata after successful file upload',
+    '#default_value' => FALSE,
+  );
+
+  $form['bb_mc_save'] = array(
+    '#type' => 'button',
+    '#value' => t('Save'),
+    '#disabled' => TRUE,
+    '#attributes' => array('onclick' => 'bluebillywig_upload_metadata(); return false'),
+  );
+  $form['#attributes'] = array('onsubmit' => 'return false');
+
+  return $form;
+}

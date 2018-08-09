@@ -1,0 +1,13 @@
+name = Blue Billywig Upload 
+description = Blue Billywig VMS Upload provides the possibility to upload clips to Blue Billywig.
+package = Blue Billywig
+dependencies[] = bluebillywig
+dependencies[] = bluebillywig_media
+dependencies[] = plupload
+
+core = 7.x
+
+version = "7.x-1.0"
+core = "7.x"
+project = "Blue Billywig"
+datestamp = "20140722"

@@ -1,0 +1,15 @@
+name = Blue Billywig Media
+description = Provides Blue Billywig support for File Entity and the Media module.
+package = Blue Billywig
+dependencies[] = bluebillywig
+dependencies[] = media_internet
+files[] = includes/MediaInternetBlueBillywigHandler.inc
+files[] = includes/MediaBlueBillywigStreamWrapper.inc
+files[] = includes/MediaBlueBillywigBrowser.inc
+file[] = includes/bluebillywig_media.formatters
+core = 7.x
+
+version = "7.x-1.0"
+core = "7.x"
+project = "Blue Billywig"
+datestamp = "20140714"

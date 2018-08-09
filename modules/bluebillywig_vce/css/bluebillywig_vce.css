@@ -1,0 +1,9 @@
+/**
+ * @file
+ * Styles for the bluebillywig VCE form.
+ *
+ */
+
+.form-radios .form-item {
+  display: inline;
+}

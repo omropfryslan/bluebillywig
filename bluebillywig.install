@@ -1,0 +1,55 @@
+<?php
+
+/**
+ * @file
+ * Installation file for Blue Billywig module.
+ */
+
+/**
+ * Implements hook_uninstall().
+ */
+function bluebillywig_uninstall() {
+  variable_del('bluebillywig_publication_hostname');
+  variable_del('bluebillywig_shared_secret');
+  variable_del('bluebillywig_vmsrpc_path');
+  variable_del('bluebillywig_default_playout');
+}
+
+/**
+ * Implements hook_requirements().
+ */
+function bluebillywig_requirements($phase) {
+  $requirements = array();
+
+  if ($phase != 'install') {
+
+    if (!($path = variable_get('bluebillywig_vmsrpc_path', FALSE))) {
+      $files = drupal_system_listing('/^vmsrpc\.class\.php$/', 'libraries', 'filename', 0);
+      if (isset($files['vmsrpc.class.php'])) {
+        $path = dirname($files['vmsrpc.class.php']->uri);
+        variable_set('bluebillywig_vmsrpc_path', $path);
+      }
+    }
+
+    if (!$path || file_exists($path . '/vmsrpc.class.php') == FALSE) {
+      $requirements['bluebillywig']['title'] = t('Blue Billywig VMS-RPC');
+      $requirements['bluebillywig']['description'] = t('The Blue Billywig VMS-RPC is missing, which is needed by the Blue Billywig modules. Please download the zip-file from !url and install it\'s contents to sites/all/libraries/vmsRpc/. Next enable the module again.', array('!url' => l('http://support.bluebillywig.com', 'http://support.bluebillywig.com/introduction/getting-started')));
+      $requirements['bluebillywig']['severity'] = REQUIREMENT_ERROR;
+      $requirements['bluebillywig']['value'] = t('Missing');
+    }
+    else {
+      $requirements['bluebillywig']['title'] = t('Blue Billywig VMS-RPC');
+      $requirements['bluebillywig']['severity'] = REQUIREMENT_OK;
+      $requirements['bluebillywig']['value'] = t('Installed');
+    }
+  }
+
+  if (!function_exists('curl_init')) {
+    $requirements['curl']['title'] = t('cURL');
+    $requirements['curl']['description'] = t('The Blue Billywig VMS-RPC needs a cURL library. It should be installed on your server.');
+    $requirements['curl']['severity'] = REQUIREMENT_ERROR;
+    $requirements['curl']['value'] = t(': missing');
+  }
+
+  return $requirements;
+}

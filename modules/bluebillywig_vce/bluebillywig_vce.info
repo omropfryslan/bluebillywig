@@ -1,0 +1,11 @@
+name = Blue Billywig VMS Clip edit
+description = Blue Billywig VMS Clip edit (VCE) provides the possibility to edit the metadata of (media)clips within the VMS.
+package = Blue Billywig
+dependencies[] = bluebillywig
+dependencies[] = file_entity
+core = 7.x
+
+version = "7.x-1.0"
+core = "7.x"
+project = "Blue Billywig"
+datestamp = "20140718"

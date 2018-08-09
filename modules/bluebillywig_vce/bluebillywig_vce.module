@@ -1,0 +1,481 @@
+<?php
+
+/**
+ * @file
+ * The Blue Billywig VMS Clip Edit (VCE) Module provides VMS mediaclip editing within Drupal by using the Blue Billywig and File Entity module.
+ * Data of the mediaclip isn't saved within Drupal, expect for the mediaclip-id and the title.
+ *
+ * Note: install the date module for better usability of the date fields.
+ *
+ * @todo Support for location/geo
+ * @todo Adding support for custom fields.
+ */
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function bluebillywig_vce_form_file_entity_edit_alter(&$form, &$form_state) {
+  if (strpos($form_state['file']->filemime, 'bluebillywig')) {
+
+    // The current file object.
+    $file = $form_state['build_info']['args'][0];
+
+    $uriParts = explode('/', $form_state['file']->uri);
+    $arId = explode('.', end($uriParts));
+    $id = $arId[0];
+
+    $mcData = bluebillywig_executeActionVms('mediaclip', array('id' => $id));
+
+    if (!empty($mcData) && $mcData['status'] != 'deleted' && $mcData['status'] != 'purged') {
+
+      $publicationHost = variable_get('bluebillywig_publication_hostname', NULL);
+      $playout = variable_get('bluebillywig_default_playout', 'default');
+
+      $form['#attached']['css'][] = drupal_get_path('module', 'bluebillywig_vce') . '/css/bluebillywig_vce.css';
+
+      // Alter the original field.
+      $form['filename'] = array(
+        '#type' => 'textfield',
+        '#title' => t('Title (name)'),
+        '#maxlength' => 255,
+        '#required' => TRUE,
+        '#default_value' => $mcData['title'],
+      );
+
+      // Always show a thumbnial even if the clip is draft.
+      $rpcToken = bluebillywig_get_token();
+      $form['preview']['#path'] = 'https://' . $publicationHost . '/mediaclip/' . $mcData['id'] . '/spthumbnail/178/100.jpg?rpctoken=' . $rpcToken;
+
+      $form['bb_mc_info'] = array(
+        '#type' => 'fieldset',
+        '#title' => t('General clip information'),
+        '#collapsible' => FALSE,
+        '#collapsed' => FALSE,
+      );
+
+      $header = array(t('Mediaclip-id'), t('Created date'), t('Published date'));
+      $rows[] = array(l($mcData['id'], 'https://' . $publicationHost . '/p/' . $playout . '/c/' . $mcData['id'] . '.html', array('attributes' => array('target' => '_bbPreview'))),
+        (isset($mcData['createddate']) ? format_date(strtotime($mcData['createddate']), 'medium') : '-'),
+        (isset($mcData['publisheddate']) ? format_date(strtotime($mcData['publisheddate']), 'medium') : '-'),
+      );
+      $form['bb_mc_info']['bb_mc_markup'] = array(
+        '#markup' => theme('table', array('header' => $header, 'rows' => $rows)),
+      );
+
+      $states = array('draft' => 'Draft', 'published' => 'Published');
+      $form['bb_mc_status'] = array(
+        '#type' => 'radios',
+        '#title' => t('Status'),
+        '#default_value' => $mcData['status'],
+        '#options' => $states,
+      );
+
+      $form['bb_mc_embargo_active'] = array(
+        '#type' => 'checkbox',
+        '#title' => t('Activate embargo'),
+        '#default_value' => ((isset($mcData['embargoFrom']) && !empty($mcData['embargoTo'])) ? TRUE : FALSE),
+        '#required' => FALSE,
+      );
+
+      $form['bb_mc_embargo'] = array(
+        '#type' => 'container',
+        '#states' => array(
+          // Hide the embargo date fields when the embargo isn't activated.
+          'invisible' => array(
+            'input[name="bb_mc_embargo_active"]' => array('checked' => FALSE),
+          ),
+        ),
+      );
+      $embargoFrom = NULL;
+      $embargoTo = NULL;
+      if (isset($mcData['embargoFrom']) && !empty($mcData['embargoTo'])) {
+        if (module_exists('date_popup')) {
+          $embargoFrom = date('Y-m-d H:i:s', strtotime($mcData['embargoFrom']));
+          $embargoTo = date('Y-m-d H:i:s', strtotime($mcData['embargoTo']));
+        }
+        else {
+          $date = strtotime($mcData['embargoFrom']);
+          $embargoFrom = array('year' => date('Y', $date), 'month' => date('n', $date), 'day' => date('j', $date));
+          $date = strtotime($mcData['embargoTo']);
+          $embargoTo = array('year' => date('Y', $date), 'month' => date('n', $date), 'day' => date('j', $date));
+        }
+      }
+
+      if (module_exists('date_popup')) {
+        $form['bb_mc_embargo']['bb_mc_embargofrom'] = array(
+          '#type' => 'date_popup',
+          '#title' => t('Start'),
+          '#default_value' => $embargoFrom,
+          '#required' => FALSE,
+        );
+
+        $form['bb_mc_embargo']['bb_mc_embargoto'] = array(
+          '#type' => 'date_popup',
+          '#title' => t('End'),
+          '#default_value' => $embargoTo,
+          '#required' => FALSE,
+        );
+      }
+      else {
+        $form['bb_mc_embargo']['bb_mc_embargofrom'] = array(
+          '#type' => 'date',
+          '#title' => t('Start'),
+          '#default_value' => $embargoFrom,
+          '#required' => FALSE,
+        );
+
+        $form['bb_mc_embargo']['bb_mc_embargoto'] = array(
+          '#type' => 'date',
+          '#title' => t('End'),
+          '#default_value' => $embargoTo,
+          '#required' => FALSE,
+        );
+      }
+
+      $form['bb_mc_metadata'] = array(
+        '#type' => 'fieldset',
+        '#title' => t('Metadata'),
+        '#collapsible' => TRUE,
+        '#collapsed' => FALSE,
+      );
+
+      $form['bb_mc_metadata']['bb_mc_id'] = array(
+        '#type' => 'hidden',
+        '#title' => t('Medicalip-id'),
+        '#maxlength' => 1024,
+        '#required' => TRUE,
+        '#default_value' => $id,
+      );
+      $form['bb_mc_metadata']['bb_mc_description'] = array(
+        '#type' => 'textarea',
+        '#title' => t('Description'),
+        '#maxlength' => 1024,
+        '#required' => FALSE,
+        '#default_value' => $mcData['description'],
+        // '#description' => t('A short description of the media.'),.
+      );
+      $form['bb_mc_metadata']['bb_mc_author'] = array(
+        '#type' => 'textfield',
+        '#title' => t('Author'),
+        '#maxlength' => 128,
+        '#required' => FALSE,
+        '#default_value' => $mcData['author'],
+      );
+      $form['bb_mc_metadata']['bb_mc_copyright'] = array(
+        '#type' => 'textfield',
+        '#title' => t('Copyright'),
+        '#maxlength' => 128,
+        '#required' => FALSE,
+        '#default_value' => $mcData['copyright'],
+      );
+      $form['bb_mc_metadata']['bb_mc_tags'] = array(
+      // << Misschien een ander veld zodat de enters direct geregeld worden.
+        '#type' => 'textarea',
+        '#title' => t('Tags'),
+        '#maxlength' => 1024,
+        '#required' => FALSE,
+        '#default_value' => (!empty($mcData['cat']) ? implode("\n", $mcData['cat']) : NULL),
+        '#description' => t('Note: One tag per line.'),
+      );
+
+      $form['bb_mc_metadata']['bb_mc_deeplink'] = array(
+        '#type' => 'textfield',
+        '#title' => t('Deeplink'),
+        '#maxlength' => 255,
+        '#required' => FALSE,
+        '#default_value' => (!empty($mcData['deeplink']) ? $mcData['deeplink'] : $mcData['gendeeplink']),
+      );
+
+      $form['bb_mc_metadata']['bb_mc_deeplink'] = array(
+        '#type' => 'textfield',
+        '#title' => t('Deeplink'),
+        '#maxlength' => 255,
+        '#required' => FALSE,
+        '#default_value' => (!empty($mcData['deeplink']) ? $mcData['deeplink'] : $mcData['gendeeplink']),
+      );
+
+      /*$form['bb_mc_metadata']['bb_mc_location'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Location'),
+      '#maxlength' => 256,
+      '#disabled' => FALSE,
+      '#required' => FALSE,
+      '#default_value' => (isset($mcData['location']) ? $mcData['location'] : ''),
+      );*/
+
+      $form['bb_mc_thumbnails'] = array(
+        '#type' => 'fieldset',
+        '#title' => t('Thumbnails'),
+        '#collapsible' => TRUE,
+        '#collapsed' => FALSE,
+      );
+
+      $publicationHost = variable_get('bluebillywig_publication_hostname', NULL);
+      $thumbs = array();
+      $active = 0;
+      $l = count($mcData['thumbnails']);
+      for ($i = 0; $i < $l; $i++) {
+
+        $src = 'https://' . $publicationHost . '/image/88/56/' . $mcData['thumbnails'][$i]['src'];
+        $thumbs[] = theme('image', array(
+          'path' => $src,
+          'width' => '88',
+          'height' => '56',
+          'attributes' => NULL,
+        ));
+        if ($mcData['thumbnails'][$i]['main'] == 'true') {
+          $active = $i;
+        }
+      }
+
+      $form['bb_mc_thumbnails']['bb_mc_selected_thumb'] = array(
+        '#type' => 'radios',
+        '#title' => t('Active thumbnail'),
+        '#default_value' => $active,
+        '#options' => $thumbs,
+      );
+      $form['bb_mc_thumbnails']['bb_mc_thumbs'] = array(
+        '#type' => 'hidden',
+        '#value' => json_encode($mcData['thumbnails']),
+      );
+
+      if (module_exists('plupload')) {
+        $form['bb_mc_thumbnails']['bb_mc_thumb_upload'] = array(
+          '#type' => 'plupload',
+          '#title' => t('Upload thumbnails'),
+          '#description' => t('This multi-upload widget uses Plupload library.'),
+          '#autoupload' => TRUE,
+          '#autosubmit' => FALSE,
+          '#submit_element' => '#bb_vce_thumb_upload',
+          '#upload_validators' => array(
+            'file_validate_extensions' => array('jpg jpeg png'),
+          ),
+          '#plupload_settings' => array(
+            'runtimes' => 'html5,flash,html4',
+          ),
+        );
+      }
+
+      // The file entity form does something weird with its action buttons such that
+      // adding handlers to the form's regular positions #submit and #validate arrays aren't used.
+      $form['actions']['submit']['#validate'][] = 'bluebillywig_vce_form_validate';
+      array_unshift($form['actions']['submit']['#submit'], 'bluebillywig_vce_form_submit');
+    }
+    else {
+      drupal_set_message(t('Something wen\'t wrong retrieving the mediaclip data from the VMS.'), 'error');
+    }
+  }
+}
+
+/**
+ * Validating nescarry data for a Blue Billywig mediaclip.
+ */
+function bluebillywig_vce_form_validate($form, &$form_state) {
+  if (empty($form_state['values']['bb_mc_id']) && is_numeric($form_state['values']['bb_mc_id'])) {
+    form_set_error('bb_mc_id', t('Something wen\'t wrong'));
+  }
+
+  if (!empty($form_state['values']['bb_mc_deeplink']) && !valid_url($form_state['values']['bb_mc_deeplink'], TRUE)) {
+    form_set_error('bb_mc_deeplink', t('The deeplink/url is not valid.'));
+  }
+}
+
+/**
+ * Extra submit for handling saving the Blue Billywig mediaclip.
+ */
+function bluebillywig_vce_form_submit($form, &$form_state) {
+
+  $fieldNamePrefix = 'bb_mc_';
+  foreach ($form_state['values'] as $fieldName => $fieldValue) {
+    if (strstr($fieldName, $fieldNamePrefix) != "") {
+      $mcData[str_replace($fieldNamePrefix, '', $fieldName)] = (!is_array($fieldValue) ? trim($fieldValue) : $fieldValue);
+    }
+  }
+
+  // Check whether new thumbs are added and encode them to base64 for later processing.
+  if (!empty($mcData['thumb_upload']) && is_array($mcData['thumb_upload'])) {
+    $scheme = variable_get('file_default_scheme', 'public') . '://';
+    foreach ($mcData['thumb_upload'] as $thumb) {
+
+      if ($thumb['status'] == 'done') {
+        $contents = NULL;
+        $source = $thumb['tmppath'];
+        $handle = fopen(drupal_realpath($source), 'r');
+        while (!feof($handle)) {
+          $contents .= fread($handle, 8192);
+        }
+        fclose($handle);
+        $mcData['new_thumb'][] = base64_encode($contents);
+        // Directly unlink the thumb, isn't needed anymore.
+        drupal_unlink($source);
+      }
+    }
+  }
+
+  if (isset($mcData['thumbs'])) {
+    $mcData['thumbs'] = json_decode($mcData['thumbs'], TRUE);
+  }
+
+  if (isset($mcData)) {
+    $mcData['title'] = trim($form_state['values']['filename']);
+    $xml = _bluebillywig_vce_construct_mc_xml($mcData);
+    $arProps = array(
+      'action' => 'put',
+      'id' => $mcData['id'],
+      'xml' => $xml,
+    );
+
+    $r = bluebillywig_executeActionVms('mediaclip', $arProps, 'raw');
+    if ($r['code'] == 200) {
+      drupal_set_message(t('Succesfully saved the mediaclip within the VMS.'));
+    }
+    else {
+      drupal_set_message(t('Something wen\'t wrong while saving the mediaclip in the VMS.'), 'error');
+    }
+  }
+}
+
+/**
+ * Setup a mediaclip XML for updating the mediaclip.
+ *
+ * @param array $mcData
+ *   All mediaclip related data.
+ *
+ * @return string    $xml     Mediaclip XML
+ */
+function _bluebillywig_vce_construct_mc_xml($mcData) {
+  $dom = new DOMDocument("1.0");
+  $dom->encoding = "UTF-8";
+  $root = $dom->createElement("media-clip");
+  $dom->appendChild($root);
+  $root->setAttribute("id", $mcData['id']);
+  $root->setAttribute("status", $mcData['status']);
+  $root->setAttribute("title", $mcData['title']);
+
+  $dateElement = $dom->createElement("date");
+  $root->appendChild($dateElement);
+  if ($mcData['embargo_active'] == 1) {
+    if (module_exists('date_popup')) {
+      $dateElement->setAttribute("embargofrom", _bluebillywig_vce_timeToUTC(strtotime($mcData['embargofrom'])));
+      $dateElement->setAttribute("embargoto", _bluebillywig_vce_timeToUTC(strtotime($mcData['embargoto'])));
+    }
+    else {
+      $dateElement->setAttribute("embargofrom", _bluebillywig_vce_timeToUTC(strtotime($mcData['embargofrom']['year'] . '-' . $mcData['embargofrom']['month'] . '-' . $mcData['embargofrom']['day'])));
+      $dateElement->setAttribute("embargoto", _bluebillywig_vce_timeToUTC(strtotime($mcData['embargoto']['year'] . '-' . $mcData['embargoto']['month'] . '-' . $mcData['embargoto']['day'])));
+    }
+  }
+  else {
+    $dateElement->setAttribute("embargofrom", "");
+    $dateElement->setAttribute("embargoto", "");
+  }
+
+  if (!empty($mcData['description'])) {
+    $descriptionElement = $dom->createElement("description", $mcData['description']);
+    $root->appendChild($descriptionElement);
+  }
+
+  if (!empty($mcData['author'])) {
+    $authorElement = $dom->createElement("author", $mcData['author']);
+    $root->appendChild($authorElement);
+  }
+
+  if (!empty($mcData['copyright'])) {
+    $copyrightElement = $dom->createElement("copyright", utf8_encode($mcData['copyright']));
+    $root->appendChild($copyrightElement);
+  }
+
+  if (!empty($mcData['deeplink'])) {
+    $deeplinkElement = $dom->createElement("deeplink");
+    $deeplinkElement->setAttribute("url", $mcData['deeplink']);
+    $root->appendChild($deeplinkElement);
+  }
+
+  if (!empty($mcData['location'])) {
+    $locationElement = $dom->createElement("location", $mcData['location']);
+    $root->appendChild($locationElement);
+  }
+
+  // Set the tags.
+  if (!empty($mcData['tags'])) {
+    $tags = explode("\n", $mcData['tags']);
+
+    $categorizationElement = $dom->createElement("categorization");
+    $root->appendChild($categorizationElement);
+
+    $categoryTreeElement = $dom->createElement("category-tree");
+    $categoryTreeElement->setAttribute("name", "default");
+    $categorizationElement->appendChild($categoryTreeElement);
+
+    if (!empty($tags)) {
+      foreach ($tags as $tag) {
+        if (!empty($tag)) {
+          $categoryElement = $dom->createElement("category");
+          $categoryElement->setAttribute("name", utf8_encode(trim($tag)));
+          $categoryTreeElement->appendChild($categoryElement);
+        }
+      }
+    }
+  }
+
+  if (!empty($mcData['thumbs']) || !empty($mcData['new_thumb'])) {
+
+    $thumbnailsElement = $dom->createElement("thumbnails");
+    $root->appendChild($thumbnailsElement);
+
+    if (isset($mcData['new_thumb'])) {
+      $l = count($mcData['new_thumb']);
+      for ($i = 0; $i < $l; $i++) {
+        $assetElement = $dom->createElement("thumbnail");
+        $assetElement->setAttribute('main', ($i == 0 ? TRUE : FALSE));
+        $assetElement->setAttribute('capture', 'true');
+        $datatElement = $dom->createElement("data", $mcData['new_thumb'][$i]);
+        $assetElement->appendChild($datatElement);
+        $thumbnailsElement->appendChild($assetElement);
+      }
+    }
+
+    if (isset($mcData['thumbs'])) {
+      $l = count($mcData['thumbs']);
+      for ($i = 0; $i < $l; $i++) {
+        $assetElement = $dom->createElement("thumbnail");
+        foreach ($mcData['thumbs'][$i] as $name => $val) {
+          if ($name == 'main') {
+            $assetElement->setAttribute($name, (($i == $mcData['selected_thumb'] && !isset($mcData['new_thumb'])) ? 'true' : 'false'));
+          }
+          else {
+            $assetElement->setAttribute($name, $val);
+          }
+          $assetElement->setAttribute('capture', 'false');
+        }
+        $thumbnailsElement->appendChild($assetElement);
+      }
+    }
+  }
+  // Needed to remove extra newlines.
+  $xml = str_replace("&#13;", "", $dom->saveXML());
+  return $xml;
+}
+
+/**
+ * Format the date/time in UTC-format.
+ *
+ * @param int $datetime
+ *   Date/Time as a Unix Timestamp.
+ *
+ * @return string    $utc_format    Date/Time in UTC format
+ */
+function _bluebillywig_vce_timeToUTC($datetime) {
+  // Get the default timezone.
+  $default_tz = date_default_timezone_get();
+
+  // Set timezone to UTC.
+  date_default_timezone_set("UTC");
+
+  // Convert datetime into UTC.
+  $utc_format = date("Y-m-d\TH:i:s\Z", $datetime);
+
+  // Might not need to set back to the default but did just in case.
+  date_default_timezone_set($default_tz);
+
+  return $utc_format;
+}
