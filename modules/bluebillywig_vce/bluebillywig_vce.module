@@ -262,7 +262,7 @@ function bluebillywig_vce_form_file_entity_edit_alter(&$form, &$form_state) {
       array_unshift($form['actions']['submit']['#submit'], 'bluebillywig_vce_form_submit');
     }
     else {
-      drupal_set_message(t('Something wen\'t wrong retrieving the mediaclip data from the VMS.'), 'error');
+      drupal_set_message(t("Something wen't wrong retrieving the mediaclip data from the VMS."), 'error');
     }
   }
 }
@@ -272,7 +272,7 @@ function bluebillywig_vce_form_file_entity_edit_alter(&$form, &$form_state) {
  */
 function bluebillywig_vce_form_validate($form, &$form_state) {
   if (empty($form_state['values']['bb_mc_id']) && is_numeric($form_state['values']['bb_mc_id'])) {
-    form_set_error('bb_mc_id', t('Something wen\'t wrong'));
+    form_set_error('bb_mc_id', t("Something wen't wrong"));
   }
 
   if (!empty($form_state['values']['bb_mc_deeplink']) && !valid_url($form_state['values']['bb_mc_deeplink'], TRUE)) {
@@ -287,7 +287,7 @@ function bluebillywig_vce_form_submit($form, &$form_state) {
 
   $fieldNamePrefix = 'bb_mc_';
   foreach ($form_state['values'] as $fieldName => $fieldValue) {
-    if (strstr($fieldName, $fieldNamePrefix) != "") {
+    if (strstr($fieldName, $fieldNamePrefix) != '') {
       $mcData[str_replace($fieldNamePrefix, '', $fieldName)] = (!is_array($fieldValue) ? trim($fieldValue) : $fieldValue);
     }
   }
@@ -330,7 +330,7 @@ function bluebillywig_vce_form_submit($form, &$form_state) {
       drupal_set_message(t('Succesfully saved the mediaclip within the VMS.'));
     }
     else {
-      drupal_set_message(t('Something wen\'t wrong while saving the mediaclip in the VMS.'), 'error');
+      drupal_set_message(t("Something wen't wrong while saving the mediaclip in the VMS."), 'error');
     }
   }
 }
@@ -343,55 +343,55 @@ function bluebillywig_vce_form_submit($form, &$form_state) {
  *
  * @return string    $xml     Mediaclip XML
  */
-function _bluebillywig_vce_construct_mc_xml($mcData) {
-  $dom = new DOMDocument("1.0");
-  $dom->encoding = "UTF-8";
-  $root = $dom->createElement("media-clip");
+function _bluebillywig_vce_construct_mc_xml(array $mcData) {
+  $dom = new DOMDocument('1.0');
+  $dom->encoding = 'UTF-8';
+  $root = $dom->createElement('media-clip');
   $dom->appendChild($root);
-  $root->setAttribute("id", $mcData['id']);
-  $root->setAttribute("status", $mcData['status']);
-  $root->setAttribute("title", $mcData['title']);
+  $root->setAttribute('id', $mcData['id']);
+  $root->setAttribute('status', $mcData['status']);
+  $root->setAttribute('title', $mcData['title']);
 
-  $dateElement = $dom->createElement("date");
+  $dateElement = $dom->createElement('date');
   $root->appendChild($dateElement);
   if ($mcData['embargo_active'] == 1) {
     if (module_exists('date_popup')) {
-      $dateElement->setAttribute("embargofrom", _bluebillywig_vce_timeToUTC(strtotime($mcData['embargofrom'])));
-      $dateElement->setAttribute("embargoto", _bluebillywig_vce_timeToUTC(strtotime($mcData['embargoto'])));
+      $dateElement->setAttribute('embargofrom', _bluebillywig_vce_timeToUTC(strtotime($mcData['embargofrom'])));
+      $dateElement->setAttribute('embargoto', _bluebillywig_vce_timeToUTC(strtotime($mcData['embargoto'])));
     }
     else {
-      $dateElement->setAttribute("embargofrom", _bluebillywig_vce_timeToUTC(strtotime($mcData['embargofrom']['year'] . '-' . $mcData['embargofrom']['month'] . '-' . $mcData['embargofrom']['day'])));
-      $dateElement->setAttribute("embargoto", _bluebillywig_vce_timeToUTC(strtotime($mcData['embargoto']['year'] . '-' . $mcData['embargoto']['month'] . '-' . $mcData['embargoto']['day'])));
+      $dateElement->setAttribute('embargofrom', _bluebillywig_vce_timeToUTC(strtotime($mcData['embargofrom']['year'] . '-' . $mcData['embargofrom']['month'] . '-' . $mcData['embargofrom']['day'])));
+      $dateElement->setAttribute('embargoto', _bluebillywig_vce_timeToUTC(strtotime($mcData['embargoto']['year'] . '-' . $mcData['embargoto']['month'] . '-' . $mcData['embargoto']['day'])));
     }
   }
   else {
-    $dateElement->setAttribute("embargofrom", "");
-    $dateElement->setAttribute("embargoto", "");
+    $dateElement->setAttribute('embargofrom', '');
+    $dateElement->setAttribute('embargoto', '');
   }
 
   if (!empty($mcData['description'])) {
-    $descriptionElement = $dom->createElement("description", $mcData['description']);
+    $descriptionElement = $dom->createElement('description', $mcData['description']);
     $root->appendChild($descriptionElement);
   }
 
   if (!empty($mcData['author'])) {
-    $authorElement = $dom->createElement("author", $mcData['author']);
+    $authorElement = $dom->createElement('author', $mcData['author']);
     $root->appendChild($authorElement);
   }
 
   if (!empty($mcData['copyright'])) {
-    $copyrightElement = $dom->createElement("copyright", utf8_encode($mcData['copyright']));
+    $copyrightElement = $dom->createElement('copyright', utf8_encode($mcData['copyright']));
     $root->appendChild($copyrightElement);
   }
 
   if (!empty($mcData['deeplink'])) {
-    $deeplinkElement = $dom->createElement("deeplink");
-    $deeplinkElement->setAttribute("url", $mcData['deeplink']);
+    $deeplinkElement = $dom->createElement('deeplink');
+    $deeplinkElement->setAttribute('url', $mcData['deeplink']);
     $root->appendChild($deeplinkElement);
   }
 
   if (!empty($mcData['location'])) {
-    $locationElement = $dom->createElement("location", $mcData['location']);
+    $locationElement = $dom->createElement('location', $mcData['location']);
     $root->appendChild($locationElement);
   }
 
@@ -399,18 +399,18 @@ function _bluebillywig_vce_construct_mc_xml($mcData) {
   if (!empty($mcData['tags'])) {
     $tags = explode("\n", $mcData['tags']);
 
-    $categorizationElement = $dom->createElement("categorization");
+    $categorizationElement = $dom->createElement('categorization');
     $root->appendChild($categorizationElement);
 
-    $categoryTreeElement = $dom->createElement("category-tree");
-    $categoryTreeElement->setAttribute("name", "default");
+    $categoryTreeElement = $dom->createElement('category-tree');
+    $categoryTreeElement->setAttribute('name', 'default');
     $categorizationElement->appendChild($categoryTreeElement);
 
     if (!empty($tags)) {
       foreach ($tags as $tag) {
         if (!empty($tag)) {
-          $categoryElement = $dom->createElement("category");
-          $categoryElement->setAttribute("name", utf8_encode(trim($tag)));
+          $categoryElement = $dom->createElement('category');
+          $categoryElement->setAttribute('name', utf8_encode(trim($tag)));
           $categoryTreeElement->appendChild($categoryElement);
         }
       }
@@ -419,16 +419,16 @@ function _bluebillywig_vce_construct_mc_xml($mcData) {
 
   if (!empty($mcData['thumbs']) || !empty($mcData['new_thumb'])) {
 
-    $thumbnailsElement = $dom->createElement("thumbnails");
+    $thumbnailsElement = $dom->createElement('thumbnails');
     $root->appendChild($thumbnailsElement);
 
     if (isset($mcData['new_thumb'])) {
       $l = count($mcData['new_thumb']);
       for ($i = 0; $i < $l; $i++) {
-        $assetElement = $dom->createElement("thumbnail");
+        $assetElement = $dom->createElement('thumbnail');
         $assetElement->setAttribute('main', ($i == 0 ? TRUE : FALSE));
         $assetElement->setAttribute('capture', 'true');
-        $datatElement = $dom->createElement("data", $mcData['new_thumb'][$i]);
+        $datatElement = $dom->createElement('data', $mcData['new_thumb'][$i]);
         $assetElement->appendChild($datatElement);
         $thumbnailsElement->appendChild($assetElement);
       }
@@ -437,7 +437,7 @@ function _bluebillywig_vce_construct_mc_xml($mcData) {
     if (isset($mcData['thumbs'])) {
       $l = count($mcData['thumbs']);
       for ($i = 0; $i < $l; $i++) {
-        $assetElement = $dom->createElement("thumbnail");
+        $assetElement = $dom->createElement('thumbnail');
         foreach ($mcData['thumbs'][$i] as $name => $val) {
           if ($name == 'main') {
             $assetElement->setAttribute($name, (($i == $mcData['selected_thumb'] && !isset($mcData['new_thumb'])) ? 'true' : 'false'));
@@ -452,7 +452,7 @@ function _bluebillywig_vce_construct_mc_xml($mcData) {
     }
   }
   // Needed to remove extra newlines.
-  $xml = str_replace("&#13;", "", $dom->saveXML());
+  $xml = str_replace('&#13;', '', $dom->saveXML());
   return $xml;
 }
 
@@ -469,10 +469,10 @@ function _bluebillywig_vce_timeToUTC($datetime) {
   $default_tz = date_default_timezone_get();
 
   // Set timezone to UTC.
-  date_default_timezone_set("UTC");
+  date_default_timezone_set('UTC');
 
   // Convert datetime into UTC.
-  $utc_format = date("Y-m-d\TH:i:s\Z", $datetime);
+  $utc_format = date('Y-m-d\TH:i:s\Z', $datetime);
 
   // Might not need to set back to the default but did just in case.
   date_default_timezone_set($default_tz);

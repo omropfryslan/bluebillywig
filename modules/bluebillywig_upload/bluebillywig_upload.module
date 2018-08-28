@@ -23,7 +23,7 @@ function bluebillywig_upload_form() {
     '#id' => 'Fileupload',
     '#name' => 'Fileupload',
     '#title' => t('Upload media file'),
-    '#description' => t('Upload a local media file directly to your Blue Billywig VMS publication. Edit metadata below. When the upload is finished and the file is readable by the VMS the metadata can be saved '),
+    '#description' => t('Upload a local media file directly to your Blue Billywig VMS publication. Edit metadata below. When the upload is finished and the file is readable by the VMS the metadata can be saved'),
     '#autoupload' => TRUE,
     '#autosubmit' => TRUE,
     '#submit_element' => '#uploadsubmit',

@@ -134,30 +134,32 @@ function bluebillywig_media_search($searchCriteria = array(), $raw = FALSE) {
   $sort = 'id desc';
   if (isset($_GET['order'])) {
     switch ($_GET['order']) {
-      case "ID":
+      case 'ID':
         $sort = 'id ' . $_GET['sort'];
         break;
 
-      case "Title":
+      case 'Title':
         $sort = 'titleSort ' . $_GET['sort'];
         break;
 
-      case "Type":
+      case 'Type':
         $sort = 'typeSort ' . $_GET['sort'];
         break;
 
-      case "Published":
+      case 'Published':
         $sort = 'published_date ' . $_GET['sort'];
         break;
 
-      case "Created":
+      case 'Created':
         $sort = 'createddate ' . $_GET['sort'];
         break;
     }
   }
 
+  $types = $searchCriteria['types'];
+
   // Take $searchCriteria['query'] and make it into a "smart" Solr query.
-  $query = bluebillywig_media_build_query($searchCriteria['query']);
+  $query = bluebillywig_media_build_query($searchCriteria['query'], $types);
 
   $arProps = array(
     'query' => $query,
@@ -242,7 +244,7 @@ function bluebillywig_media_playout_form_field(&$form, &$form_state) {
       $id = $matches[2];
 
       // Get the mediaclip data.
-      $mcData = bluebillywig_executeActionVms('mediaclip', array("id" => $id));
+      $mcData = bluebillywig_executeActionVms('mediaclip', array('id' => $id));
 
       /*
       //Add a link to the edit the file-entity form.
@@ -265,8 +267,8 @@ function bluebillywig_media_playout_form_field(&$form, &$form_state) {
       if (empty($mcData['assets'])) {
         $form['options']['bb_mc_playable'] = array(
           '#markup' => '<font color="#f00"><i>Note the media isn\'t playable yet. The media is now being transcoded and available within a few minutes.</i>
-                                  <br/>
-                                  <strong><a href="#" onclick="javascript: location.reload();" style="color:#ff0000;">Check whether the media is playable now.</a></strong></font>',
+            <br/>
+            <strong><a href="#" onclick="javascript: location.reload();" style="color:#ff0000;">Check whether the media is playable now.</a></strong></font>',
         );
       }
     }
@@ -304,12 +306,21 @@ function bluebillywig_media_media_wysiwyg_token_to_markup_alter(&$element, $tag_
 /**
  * Builds "smart" Solr query using base query terms.
  */
-function bluebillywig_media_build_query($baseQuery) {
-  /**
-   * generates VMS search query
-   */
+function bluebillywig_media_build_query($baseQuery, $types = array()) {
+  if (empty($types)) {
+    $query = 'type:mediaclip AND (mediatype:video OR mediatype:audio)';
+  }
+  else {
+    $query = 'type:mediaclip';
+    $mediatype = array();
+    foreach ($types as $type) {
+      $mediatype[] = 'mediatype:' . $type;
+    }
 
-  $query = 'type:mediaclip AND (mediatype:video OR mediatype:audio)';
+    if (!empty($mediatype)) {
+      $query .= ' (' . implode(' OR ', $mediatype) . ')';
+    }
+  }
 
   if ($categories = variable_get('bluebillywig_default_keywords')) {
     $categories_list = explode(',', $categories);
@@ -343,7 +354,7 @@ function bluebillywig_media_build_query($baseQuery) {
 /**
  * Provides a form for adding media items from Blue Billywig search.
  */
-function media_bluebillywig_add($form, &$form_state = array()) {
+function media_bluebillywig_add($form, &$form_state, $types, $multiselect) {
   $resultsPerPage = 12;
   module_load_include('inc', 'media', 'includes/media.browser');
 
@@ -371,7 +382,7 @@ function media_bluebillywig_add($form, &$form_state = array()) {
     '#type' => 'textfield',
     '#title' => t('Search'),
     '#description' => t('Input a phrase or tags to search.'),
-    '#default_value' => '',
+    '#default_value' => ($term != 'type:mediaclip') ? $term : '',
   );
   $form['apply'] = array(
     '#type' => 'button',
@@ -384,7 +395,13 @@ function media_bluebillywig_add($form, &$form_state = array()) {
     $page = 0;
   }
   if (!empty($term)) {
-    $search = bluebillywig_media_search(array('query' => $term, 'limit' => $resultsPerPage, 'offset' => $page * $resultsPerPage), TRUE);
+    $search = bluebillywig_media_search(array(
+      'query' => $term,
+      'limit' => $resultsPerPage,
+      'offset' => $page * $resultsPerPage,
+      'types' => $types,
+    ),
+    TRUE);
   }
   $form['bbsearchinfo'] = array();
   $form['videos']['#prefix'] = '<div id="container"><div id="scrollbox"><div id="media-browser-library-list" class="media-list-thumbnails">';
@@ -398,19 +415,24 @@ function media_bluebillywig_add($form, &$form_state = array()) {
   else {
     $firstOnPage = $search['offset'] + 1;
     $lastOnPage = $search['offset'] + count($search['items']);
+    $args = array(
+      ':numfound' => $search['numfound'],
+      ':firstOnPage' => $firstOnPage,
+      ':lastOnPage' => $lastOnPage,
+    );
     $form['bbsearchinfo'] = array(
-      '#markup' => '<div>' . t('Found') . ' ' . $search['numfound'] . ' clips. ' . t('Showing') . ' clips ' . $firstOnPage . '-' . $lastOnPage . '<br/>
-                        </div>',
+      '#markup' => '<div>' . t('Found :numfound clips. Showing clips :firstOnPage - :lastOnPage', $args),
     );
 
-    $header = array(array('data' => t('Mediaclip-id'), 'field' => 'id'),
+    $header = array(
+      array('data' => t('Mediaclip-id'), 'field' => 'id'),
       t('Thumbnail'),
-                    array('data' => t('Title'), 'field' => 'titleSort', 'sort'),
-                    array('data' => t('Type'), 'field' => 'typeSort', 'sort'),
-                    array('data' => t('Status'), 'field' => 'statusSort', 'sort'),
-                    array('data' => t('Playable')),
-                    array('data' => t('Published'), 'field' => 'published_date', 'sort'),
-                    array('data' => t('Created'), 'field' => 'createddate', 'sort' => 'desc'),
+      array('data' => t('Title'), 'field' => 'titleSort', 'sort'),
+      array('data' => t('Type'), 'field' => 'typeSort', 'sort'),
+      array('data' => t('Status'), 'field' => 'statusSort', 'sort'),
+      array('data' => t('Playable')),
+      array('data' => t('Published'), 'field' => 'published_date', 'sort'),
+      array('data' => t('Created'), 'field' => 'createddate', 'sort' => 'desc'),
     );
 
     $rows = array();
@@ -423,7 +445,6 @@ function media_bluebillywig_add($form, &$form_state = array()) {
       // Prepare some media data.
       $title = (isset($item['title']) ? $item['title'] : $item['originalfilename']);
       $thumbnail = 'https://' . $publicationHost . '/mediaclip/' . $item['id'] . '/spthumbnail/100/56.jpg?rpctoken=' . $rpcToken;
-      // $url = 'http://' . $publicationHost . '/p/' . $playout . '/c/' . $item['id'] . '.html';
       $url = 'https://' . $publicationHost . '/p/%PLAYOUT%/c/' . $item['id'] . '.html';
 
       // Preload the file objects.
@@ -488,12 +509,20 @@ function media_bluebillywig_add($form, &$form_state = array()) {
   $prev = $next = '';
   if ($page) {
     $query['page-bb'] = $page - 1;
-    $prev = l(t('previous'), $dest, array('query' => $query, 'fragment' => 'media-tab-bluebillywig'));
+    $prev = l(t('previous'), $dest, array(
+      'query' => $query,
+      'fragment' => 'media-tab-bluebillywig',
+      'attributes' => array('class' => array('button')),
+    ));
   }
   $query['page-bb'] = $page + 1;
   if (!$empty) {
     if ($search['numfound'] > $lastOnPage) {
-      $next = l(t('next'), $dest, array('query' => $query, 'fragment' => 'media-tab-bluebillywig'));
+      $next = l(t('next'), $dest, array(
+        'query' => $query,
+        'fragment' => 'media-tab-bluebillywig',
+        'attributes' => array('class' => array('button')),
+      ));
     }
   }
 
@@ -521,7 +550,7 @@ function media_bluebillywig_add($form, &$form_state = array()) {
   drupal_add_js(array('media' => array('files' => $files)), 'setting');
 
   // Add media browser javascript and CSS.
-  drupal_add_js(drupal_get_path('module', 'bluebillywig_media') . '/js/bluebillywig_media.browser.js');
+  $form['#attached']['js'][] = drupal_get_path('module', 'bluebillywig_media') . '/js/bluebillywig_media.browser.js';
 
   $form['actions'] = array('#type' => 'actions');
   $form['actions']['submit'] = array(
@@ -661,7 +690,7 @@ function bluebillywig_media_file_presave($file) {
       $id = $matches[2];
 
       // Get the mediaclip data.
-      $item = bluebillywig_executeActionVms('mediaclip', array("id" => $id));
+      $item = bluebillywig_executeActionVms('mediaclip', array('id' => $id));
 
       $file->filename = (!empty($item['title']) ? $item['title'] : $item['originalfilename']);
 

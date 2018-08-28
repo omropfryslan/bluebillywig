@@ -33,7 +33,7 @@ function bluebillywig_requirements($phase) {
 
     if (!$path || file_exists($path . '/vmsrpc.class.php') == FALSE) {
       $requirements['bluebillywig']['title'] = t('Blue Billywig VMS-RPC');
-      $requirements['bluebillywig']['description'] = t('The Blue Billywig VMS-RPC is missing, which is needed by the Blue Billywig modules. Please download the zip-file from !url and install it\'s contents to sites/all/libraries/vmsRpc/. Next enable the module again.', array('!url' => l('http://support.bluebillywig.com', 'http://support.bluebillywig.com/introduction/getting-started')));
+      $requirements['bluebillywig']['description'] = t("The Blue Billywig VMS-RPC is missing, which is needed by the Blue Billywig modules. Please download the zip-file from !url and install it's contents to sites/all/libraries/vmsRpc/. Next enable the module again.", array('!url' => l('http://support.bluebillywig.com', 'http://support.bluebillywig.com/introduction/getting-started')));
       $requirements['bluebillywig']['severity'] = REQUIREMENT_ERROR;
       $requirements['bluebillywig']['value'] = t('Missing');
     }

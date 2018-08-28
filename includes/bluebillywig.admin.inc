@@ -21,7 +21,7 @@ function bluebillywig_admin_settings($form, &$form_state) {
     '#maxlength' => 128,
     '#required' => TRUE,
     '#default_value' => variable_get('bluebillywig_publication_hostname', ''),
-    '#description' => t('The hostname of your Blue Billywig VMS publication. The name of your publication can be found in the hostname you\'re using to acces the VMS, so: http://[publication_name].bbvms.com (for example: example.bbvms.com).'),
+    '#description' => t("The hostname of your Blue Billywig VMS publication. The name of your publication can be found in the hostname you're using to acces the VMS, so: http://[publication_name].bbvms.com (for example: example.bbvms.com)."),
   );
   $form['account']['bluebillywig_shared_secret'] = array(
     '#type' => 'textfield',
@@ -29,7 +29,7 @@ function bluebillywig_admin_settings($form, &$form_state) {
     '#maxlength' => 255,
     '#required' => TRUE,
     '#default_value' => variable_get('bluebillywig_shared_secret', ''),
-    '#description' => t('Fill in the Shared Secret as received from Blue Billywig. If you haven\'t received an Shared Secret, please contact !link.', array('!link' => l(t('Blue Billywig'), 'http://bluebillywig.com/nl/contact'))),
+    '#description' => t("Fill in the Shared Secret as received from Blue Billywig. If you haven't received an Shared Secret, please contact !link.", array('!link' => l(t('Blue Billywig'), 'http://bluebillywig.com/nl/contact'))),
   );
 
   $form['player'] = array(
@@ -70,7 +70,7 @@ function bluebillywig_admin_settings($form, &$form_state) {
 function bluebillywig_admin_settings_validate($form, &$form_state) {
   // Check the VMS-credentials before saving.
   if (!_bluebillywig_checkVmsCredentials($form_state['values']['bluebillywig_publication_hostname'], $form_state['values']['bluebillywig_shared_secret'])) {
-    form_set_error('bluebillywig_credentails_incorrect', t('Couldn\'t connect with the VMS publication.'));
+    form_set_error('bluebillywig_credentails_incorrect', t("Couldn't connect with the VMS publication."));
     form_set_error('bluebillywig_publication_hostname', 'The publication hostname may be invalid.');
     form_set_error('bluebillywig_shared_secret', 'The Shared Secret may be invalid');
   }
@@ -80,5 +80,5 @@ function bluebillywig_admin_settings_validate($form, &$form_state) {
  * Submit handler for bluebillywig_admin_settings.
  */
 function bluebillywig_admin_settings_submit($form, &$form_state) {
-    cache_clear_all('bluebillywig_playouts_list', 'cache');
+  cache_clear_all('bluebillywig_playouts_list', 'cache');
 }

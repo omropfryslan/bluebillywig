@@ -26,7 +26,7 @@ var myUploader = jQuery('.plupload-element').pluploadQueue();
   });
 
  myUploader.bind('BeforeUpload', function (up, file) {
-    up.settings.multipart_params = {"originalfilename": file.name };
+    up.settings.multipart_params = {'originalfilename': file.name };
     jQuery('#edit-bb-mc-originalfilename').val(file.name);
    });
  myUploader.bind('FileUploaded', function (up, file, response) {
@@ -78,11 +78,11 @@ function bluebillywig_upload_metadata() {
             async: false,
         success: function (data) {
             // Display the message from successful response.
-            jQuery("#edit-bb-mc-save").after('<div id="bb-mc-statusmsg" class="messages status">Clip metadata saved</div>');
+            jQuery('#edit-bb-mc-save').after('<div id="bb-mc-statusmsg" class="messages status">Clip metadata saved</div>');
         // Select the newly uploaded clip in the media-browser.
         var uri = jQuery('input[name=bb_uri_prefix]').val() + objClip.id + '.js';
         jQuery("input[name='submitted-video']").val(uri);
-        jQuery("#edit-submit").click();
+        jQuery('#edit-submit').click();
             },
         error: function (request, status, error) {
             alert(request.responseText);

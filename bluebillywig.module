@@ -26,7 +26,7 @@ function bluebillywig_menu() {
 
   $items[$base] = array(
     'title' => 'Bluebillywig settings',
-    'description' => t('Configure your Blue Billywig VMS publication, shared secret, default player etc.'),
+    'description' => 'Configure your Blue Billywig VMS publication, shared secret, default player etc.',
     'page callback' => 'drupal_get_form',
     'page arguments' => array('bluebillywig_admin_settings'),
     'type' => MENU_NORMAL_ITEM,
@@ -60,8 +60,8 @@ function bluebillywig_executeActionVms($entity, $arProps = NULL, $returnType = '
       $eid = NULL;
 
       switch ($returnType) {
-        case "json":
-        case "xml":
+        case 'json':
+        case 'xml':
           if (isset($arProps['id'])) {
             $eid = $arProps['id'];
             unset($arProps['id']);
@@ -69,7 +69,7 @@ function bluebillywig_executeActionVms($entity, $arProps = NULL, $returnType = '
           $result = $vms->$returnType($entity, $eid, $arProps);
           break;
 
-        case "raw":
+        case 'raw':
           if (isset($arProps['action'])) {
             $action = $arProps['action'];
             unset($arProps['action']);
@@ -125,9 +125,10 @@ function _bluebillywig_checkVmsCredentials($publicationHost, $sharedSecret) {
 
   try {
     $vms = new VMSRpc('https://' . $publicationHost, NULL, NULL, $sharedSecret);
-    $r = $vms->sapi('publication', NULL, "GET");
+    $r = drupal_json_decode($vms->sapi('publication', NULL, 'GET'));
 
-    if ($r['code'] < 400) {
+    if (!empty($r['status'])
+      && $r['status'] == 'active') {
       // @todo maybe add a check on the publicationname.
       return TRUE;
     }

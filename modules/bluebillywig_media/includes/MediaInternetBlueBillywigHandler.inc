@@ -24,10 +24,10 @@ class MediaInternetBlueBillywigHandler extends MediaInternetBaseHandler {
     if (empty($publicationHost)) {
       return FALSE;
     }
-    $response = bluebillywig_executeActionVms('mediaclip', array("id" => $id));
+    $response = bluebillywig_executeActionVms('mediaclip', array('id' => $id));
     // Check if the response is valid.
     if ($response['id'] != $id) {
-      throw new MediaInternetValidationException("The BlueBillywig media-clip ID is invalid, not published or the media-clip was deleted.");
+      throw new MediaInternetValidationException('The BlueBillywig media-clip ID is invalid, not published or the media-clip was deleted.');
     }
     return TRUE;
   }
