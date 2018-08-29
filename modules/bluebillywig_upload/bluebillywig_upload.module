@@ -10,7 +10,7 @@
  */
 function bluebillywig_upload_form() {
   $publicationHost = variable_get('bluebillywig_publication_hostname', NULL);
-  $vmsMediaClipUrl = 'http://' . $publicationHost . '/json/upload';
+  $vmsMediaClipUrl = 'https://' . $publicationHost . '/json/upload';
 
   // Register custom callback functions for plupload events.
   drupal_add_js(drupal_get_path('module', 'bluebillywig_upload') . '/js/bluebillywig_upload.js');

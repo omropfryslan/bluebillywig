@@ -175,6 +175,13 @@ function bluebillywig_media_search($searchCriteria = array(), $raw = FALSE) {
  * Request for microdata tags for a mediaclip.
  */
 function bluebillywig_media_get_microdata($id, $playout, $md = TRUE, $og = TRUE) {
+  $cid = 'bbw_' . $id . '_' . $playout . '_' . (int)$md;
+
+  $cache = cache_get($cid);
+  if (!empty($cache->data) && $cache->expire > REQUEST_TIME) {
+    return $cache->data;
+  }
+
   $qs = array(
     'c' => $id,
     'p' => $playout,
@@ -182,10 +189,29 @@ function bluebillywig_media_get_microdata($id, $playout, $md = TRUE, $og = TRUE)
   );
 
   $hostName = variable_get('bluebillywig_publication_hostname', '');
-  $r = drupal_http_request('http://' . $hostName . '/microdata/?' . http_build_query($qs));
+  $r = drupal_http_request('https://' . $hostName . '/microdata/?' . http_build_query($qs));
 
   if ($r->code == '200' && !empty($r->data)) {
-    return $r->data;
+    $data = $r->data;
+
+    // Add json+ld object.
+    if (preg_match_all('/<meta itemprop="(.*)" content="(.*)">/msU', $r->data, $matches)) {
+      $json = array(
+        '@context' => 'http://schema.org',
+        '@type' =>  'VideoObject',
+      );
+
+      foreach ($matches[1] as $i => $name) {
+        $val = $matches[2][$i];
+
+        $json[$name] = $val;
+      }
+
+      $data .= '<script type="application/ld+json">' . json_encode($json) . '</script>';
+    }
+
+    cache_set($cid, $data, 'cache', REQUEST_TIME + 3600);
+    return $data;
   }
 }
 
