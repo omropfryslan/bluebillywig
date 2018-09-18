@@ -196,7 +196,6 @@ function bluebillywig_media_file_formatter_audio_iframe_view($file, $display, $l
  * Blue Billywig thumbnails aren't locally stored, so always gathered from the VMS.
  */
 function bluebillywig_media_file_formatter_image_view($file, $display, $langcode) {
-
   $scheme = file_uri_scheme($file->uri);
   if ($scheme == 'bluebillywig') {
     $wrapper = file_stream_wrapper_get_instance_by_uri($file->uri);
@@ -213,10 +212,11 @@ function bluebillywig_media_file_formatter_image_view($file, $display, $langcode
     }
     else {
       $element = array(
-        '#theme' => 'image_style',
+        '#theme' => 'bluebillywig_vce_image_style',
         '#style_name' => $image_style,
         '#path' => $wrapper->getLocalThumbnailPath(),
         '#alt' => isset($file->override['attributes']['alt']) ? $file->override['attributes']['alt'] : $file->filename,
+        '#timestamp' => $file->timestamp,
       );
     }
     return $element;

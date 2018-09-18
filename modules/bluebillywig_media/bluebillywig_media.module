@@ -28,31 +28,14 @@ function bluebillywig_media_media_parse($embed_code) {
 }
 
 /**
- * Implements hook_media_parse().
+ * Check if embed_code has a valid id.
  */
 function bluebillywig_media_media_validid($embed_code) {
   $handler = new MediaInternetBlueBillywigHandler($embed_code);
 
-  $publicationHost = variable_get('bluebillywig_publication_hostname', NULL);
-  if (empty($publicationHost)) {
-    return FALSE;
-  }
+  $id = bluebillywig_media_get_id($embed_code);
 
-  // Default VMS domain.
-  $domainPattern = 'bbvms\.com';
-  if (!strpos($publicationHost, 'bbvms.com')) {
-    $parts = explode('.', $publicationHost);
-    $l = count($parts);
-    $domainPattern = $parts[$l - 2] . '\.' . $parts[$l - 1];
-  }
-
-  $pattern = '@' . $domainPattern . '/p/(.*?)\/c\/(\d+)@';
-  preg_match($pattern, $embed_code, $matches);
-  if (isset($matches[2]) && $handler->validId($matches[2])) {
-    return TRUE;
-  }
-
-  return FALSE;
+  return (bool) $handler->validId($id);
 }
 
 /**
@@ -344,7 +327,7 @@ function bluebillywig_media_build_query($baseQuery, $types = array()) {
     }
 
     if (!empty($mediatype)) {
-      $query .= ' (' . implode(' OR ', $mediatype) . ')';
+      $query .= ' AND (' . implode(' OR ', $mediatype) . ')';
     }
   }
 
@@ -697,22 +680,10 @@ function media_bluebillywig_add_submit($form, &$form_state) {
 /**
  * Implements hook_media_file_presave().
  */
-function bluebillywig_media_file_presave($file) {
+function bluebillywig_media_media_file_presave($file) {
 
   if (strpos($file->filemime, 'bluebillywig')) {
-    $publicationHost = variable_get('bluebillywig_publication_hostname', NULL);
-
-    // Default VMS domain.
-    $domainParttern = 'bbvms\.com';
-    if (!strpos($publicationHost, 'bbvms.com')) {
-      $parts = explode('.', $publicationHost);
-      $l = count($parts);
-      $domainParttern = $parts[$l - 2] . '\.' . $parts[$l - 1];
-    }
-
-    $pattern = '@' . $domainParttern . '/p/(.*?)\/c\/(\d+)@';
-    preg_match($pattern, $file->uri, $matches);
-    if (isset($matches[2]) && is_numeric($matches[2])) {
+    if (bluebillywig_media_get_id($file->uri)) {
       $id = $matches[2];
 
       // Get the mediaclip data.
@@ -727,4 +698,30 @@ function bluebillywig_media_file_presave($file) {
       }
     }
   }
+}
+
+/**
+ * Extract id from bluebillywig:// file uri.
+ */
+function bluebillywig_media_get_id($uri) {
+  $publicationHost = variable_get('bluebillywig_publication_hostname', NULL);
+  if (empty($publicationHost)) {
+    return FALSE;
+  }
+
+  $domainPattern = '';
+  if (preg_match('/(.*)\.bbvms\.com/', $publicationHost, $matches)) {
+    $domainPattern = $matches[1] . '.bbvms.com';
+    $domainPattern = str_replace('.', '\.', $domainPattern);
+  }
+
+  $pattern = '@' . $domainParttern . '/p/(.*?)\/c\/(\d+)@';
+  preg_match($pattern, $uri, $matches);
+  if (isset($matches[2]) && is_numeric($matches[2])) {
+    $id = $matches[2];
+
+    return $id;
+  }
+
+  return FALSE;
 }

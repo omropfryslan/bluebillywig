@@ -66,7 +66,7 @@ class MediaBlueBillywigStreamWrapper extends MediaReadOnlyStreamWrapper {
    */
   public function getOriginalThumbnailPath($width = 'default', $height = 'default') {
     $parts = $this->get_parameters();
-    return $this->base_url . '/mediaclip/' . check_plain($parts['id']) . '/pthumbnail/' . $width . '/' . $height . '.jpg';
+    return $this->base_url . '/mediaclip/' . check_plain($parts['id']) . '/pthumbnail/' . $width . '/' . $height . '.jpg?' . time();
   }
 
   /**
