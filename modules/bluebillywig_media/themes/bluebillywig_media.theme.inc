@@ -102,3 +102,26 @@ function bluebillywig_media_preprocess_bluebillywig_media_video(&$variables) {
   // Make iframe (html version) of url.
   $variables['iframeUrl'] = preg_replace('@\.js@', '.html', $variables['url']);
 }
+
+/**
+ * Copy of theme_image_style() with cache busting.
+ */
+function theme_bluebillywig_media_image_style($variables) {
+  // Determine the dimensions of the styled image.
+  $dimensions = array(
+    'width' => $variables['width'],
+    'height' => $variables['height'],
+  );
+  image_style_transform_dimensions($variables['style_name'], $dimensions);
+  $variables['width'] = $dimensions['width'];
+  $variables['height'] = $dimensions['height'];
+
+  // Determine the URL for the styled image.
+  $variables['path'] = image_style_url($variables['style_name'], $variables['path']);
+
+  if ($variables['timestamp']) {
+    $variables['path'] .= '?' . $variables['timestamp'];
+  }
+
+  return theme('image', $variables);
+}

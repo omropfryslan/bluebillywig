@@ -67,6 +67,20 @@ function bluebillywig_media_theme($existing, $type, $theme, $path) {
       'path' => $path . '/themes',
       'template' => 'bluebillywig-media-iframe',
     ),
+    'bluebillywig_media_image_style' => array(
+      'variables' => array(
+        'style_name' => NULL,
+        'path' => NULL,
+        'width' => NULL,
+        'height' => NULL,
+        'alt' => '',
+        'title' => NULL,
+        'attributes' => array(),
+        'timestamp' => NULL,
+      ),
+      'path' => $path . '/themes',
+      'file' => 'bluebillywig_media.theme.inc',
+    ),
   );
 }
 
@@ -715,7 +729,7 @@ function bluebillywig_media_get_id($uri) {
     $domainPattern = str_replace('.', '\.', $domainPattern);
   }
 
-  $pattern = '@' . $domainParttern . '/p/(.*?)\/c\/(\d+)@';
+  $pattern = '@' . $domainPattern . '/p/(.*?)\/c\/(\d+)@';
   preg_match($pattern, $uri, $matches);
   if (isset($matches[2]) && is_numeric($matches[2])) {
     $id = $matches[2];

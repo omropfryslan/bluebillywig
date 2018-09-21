@@ -12,50 +12,6 @@
  */
 
 /**
- * Implements hook_theme().
- */
-function bluebillywig_vce_theme($existing, $type, $theme, $path) {
-  return array(
-    // Theme functions in image.module.
-    'bluebillywig_vce_image_style' => array(
-      'variables' => array(
-        'style_name' => NULL,
-        'path' => NULL,
-        'width' => NULL,
-        'height' => NULL,
-        'alt' => '',
-        'title' => NULL,
-        'attributes' => array(),
-        'timestamp' => NULL,
-      ),
-    ),
-  );
-}
-
-/**
- * Copy of theme_image_style() with cache busting.
- */
-function theme_bluebillywig_vce_image_style($variables) {
-  // Determine the dimensions of the styled image.
-  $dimensions = array(
-    'width' => $variables['width'],
-    'height' => $variables['height'],
-  );
-  image_style_transform_dimensions($variables['style_name'], $dimensions);
-  $variables['width'] = $dimensions['width'];
-  $variables['height'] = $dimensions['height'];
-
-  // Determine the URL for the styled image.
-  $variables['path'] = image_style_url($variables['style_name'], $variables['path']);
-
-  if ($variables['timestamp']) {
-    $variables['path'] .= '?' . $variables['timestamp'];
-  }
-
-  return theme('image', $variables);
-}
-
-/**
  * Implements hook_form_FORM_ID_alter().
  */
 function bluebillywig_vce_form_file_entity_edit_alter(&$form, &$form_state) {

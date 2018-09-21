@@ -212,7 +212,7 @@ function bluebillywig_media_file_formatter_image_view($file, $display, $langcode
     }
     else {
       $element = array(
-        '#theme' => 'bluebillywig_vce_image_style',
+        '#theme' => 'bluebillywig_media_image_style',
         '#style_name' => $image_style,
         '#path' => $wrapper->getLocalThumbnailPath(),
         '#alt' => isset($file->override['attributes']['alt']) ? $file->override['attributes']['alt'] : $file->filename,
