@@ -334,8 +334,9 @@ function bluebillywig_vce_form_submit($form, &$form_state) {
     }
   }
 
+  // @todo. use mcdata?
   $thumb_id = $form['bb_mc_thumbnails']['bb_mc_thumbs']['#default_value'];
-  if (!$mcData['thumbs'][$thumb_id]['main']) {
+  if (empty($mcData['thumbs'][$thumb_id]['main'])) {
     $uri = file_default_scheme() . '://media-bluebillywig/' . check_plain($mcData['id']) . '.jpg';
 
     image_path_flush($uri);
