@@ -1,0 +1,52 @@
+<?php
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function bluebillywig_thumbnailer_form_file_entity_edit_alter(&$form, &$form_state) {
+  if (!empty($form_state['file'])
+    && $form_state['file']->filemime == 'video/bluebillywig') {
+    $file = $form_state['file'];
+
+    $file_view = file_view($file);
+
+    $file_view['file']['#theme'] = 'bluebillywig_media_video_thumbnailer';
+
+    // Change file uri to 'default' playout.
+    $file_view['file']['#uri'] = preg_replace('@(.*).bbvms\.com/p/(.*?)\/c\/(\d+)@', '$1.bbvms.com/p/default/c/$3', $file_view['file']['#uri']);
+
+    $form['bb_mc_thumbnails']['bb_mc_video'] = array(
+      '#markup' => render($file_view),
+      '#attached' => array(
+        'js' => array(drupal_get_path('module', 'bluebillywig_thumbnailer') . '/js/bluebillywig_thumbnailer.js'),
+      ),
+    );
+    $form['#attached']['js'][] = drupal_get_path('module', 'bluebillywig_thumbnailer') . '/js/bluebillywig_thumbnailer.js';
+    $form['#attached']['css'][] = drupal_get_path('module', 'bluebillywig_thumbnailer') . '/css/bluebillywig_thumbnailer.css';
+  }
+}
+
+/**
+ * Implements hook_theme().
+ */
+function bluebillywig_thumbnailer_theme($existing, $type, $theme, $path) {
+  return array(
+    'bluebillywig_media_video_thumbnailer' => array(
+      'variables' => array(
+        'uri' => NULL,
+        'options' => array()
+      ),
+      'path' => $path . '/themes',
+      'template' => 'bluebillywig-media-thumbnailer',
+    ),
+  );
+}
+
+/**
+ * Preprocess function for theme('bluebillywig_media_video').
+ */
+function bluebillywig_thumbnailer_preprocess_bluebillywig_media_video_thumbnailer(&$variables) {
+  module_load_include('inc', 'bluebillywig_media', 'themes/bluebillywig_media.theme');
+
+  return bluebillywig_media_preprocess_bluebillywig_media_video($variables);
+}

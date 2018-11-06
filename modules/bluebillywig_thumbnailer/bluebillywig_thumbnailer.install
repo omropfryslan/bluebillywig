@@ -1,0 +1,10 @@
+<?php
+/**
+ * Implements hook_install().
+ */
+function bluebillywig_thumbnailer_install() {
+  db_update('system')
+    ->fields(array('weight' => 10))
+    ->condition('name', 'bluebillywig_thumbnailer', '=')
+    ->execute();
+}
