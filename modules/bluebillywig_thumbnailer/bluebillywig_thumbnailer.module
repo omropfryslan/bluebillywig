@@ -13,16 +13,15 @@ function bluebillywig_thumbnailer_form_file_entity_edit_alter(&$form, &$form_sta
     $file_view['file']['#theme'] = 'bluebillywig_media_video_thumbnailer';
 
     // Change file uri to 'default' playout.
-    $file_view['file']['#uri'] = preg_replace('@(.*).bbvms\.com/p/(.*?)\/c\/(\d+)@', '$1.bbvms.com/p/default/c/$3', $file_view['file']['#uri']);
+    $file_view['file']['#uri'] = preg_replace('@(.*)\.bbvms\.com/p/(.*?)\/c\/(\d+)@', '$1.bbvms.com/p/default/c/$3', $file_view['file']['#uri']);
 
     $form['bb_mc_thumbnails']['bb_mc_video'] = array(
       '#markup' => render($file_view),
-      '#attached' => array(
-        'js' => array(drupal_get_path('module', 'bluebillywig_thumbnailer') . '/js/bluebillywig_thumbnailer.js'),
-      ),
     );
-    $form['#attached']['js'][] = drupal_get_path('module', 'bluebillywig_thumbnailer') . '/js/bluebillywig_thumbnailer.js';
-    $form['#attached']['css'][] = drupal_get_path('module', 'bluebillywig_thumbnailer') . '/css/bluebillywig_thumbnailer.css';
+
+    $module_path = drupal_get_path('module', 'bluebillywig_thumbnailer');
+    $form['#attached']['js'][] = $module_path . '/js/bluebillywig_thumbnailer.js';
+    $form['#attached']['css'][] = $module_path . '/css/bluebillywig_thumbnailer.css';
   }
 }
 

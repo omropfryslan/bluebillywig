@@ -82,7 +82,8 @@ function bbw_thumbnailer_init(player) {
         var byteString;
         if (dataURI.split(',')[0].indexOf('base64') >= 0) {
           byteString = atob(dataURI.split(',')[1]);
-        } else {
+        }
+        else {
           byteString = encodeURI(dataURI.split(',')[1]);
         }
 

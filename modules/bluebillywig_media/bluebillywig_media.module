@@ -444,7 +444,7 @@ function media_bluebillywig_add($form, &$form_state, $types, $multiselect) {
       ':lastOnPage' => $lastOnPage,
     );
     $form['bbsearchinfo'] = array(
-      '#markup' => '<div>' . t('Found :numfound clips. Showing clips :firstOnPage - :lastOnPage', $args),
+      '#markup' => '<div>' . t('Found :numfound clips. Showing clips :firstOnPage - :lastOnPage', $args) . '</div>',
     );
 
     $header = array(

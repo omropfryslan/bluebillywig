@@ -1,7 +1,4 @@
-<div class="<?php print $classes; ?> bluebillywig-media-<?php print $id; ?>">
-  <div class="bluebillywig-media-thumbnail-wrapper">
-  <?php
-
+<?php
 /**
  * @file Media_vimeo/themes/bluebillywig-media-video.tpl.php.
  *
@@ -39,18 +36,17 @@ $qs['relatedItems'] = 'Hide';
 $qs['autoMute'] = 'true';
 $qs['fitmode'] = 'FIT_SMART';
 $qs['title'] = 'hide';
-
-
-// If set add microdata, so search engines and web-crawlers are provided with extra information about the media.
-echo $microdata;
-
 ?>
-  <script crossOrigin="Anonymous" src="<?php print $url . (!empty($qs) ? '?' . http_build_query($qs) : '') ?>" type="text/javascript"></script>
-</div>
-<div class="bluebillywig-media-thumbnail-image">
-  <div class="bluebillywig-media-thumbnail-image-camera">
-    <span class="bluebillywig-thumbnailer-icon-camera-retro">
+
+<div class="<?php print $classes; ?> bluebillywig-media-<?php print $id; ?>">
+  <div class="bluebillywig-media-thumbnail-wrapper">
+    <?php echo $microdata; ?>
+    <script crossOrigin="Anonymous" src="<?php print $url . (!empty($qs) ? '?' . http_build_query($qs) : '') ?>" type="text/javascript"></script>
   </div>
-</div>
-<div class="bluebillywig-media-thumbnail-flash" style="display: none; opacity: 0.5;"></div>
+  <div class="bluebillywig-media-thumbnail-image">
+    <div class="bluebillywig-media-thumbnail-image-camera">
+      <span class="bluebillywig-thumbnailer-icon-camera-retro"></span>
+    </div>
+  </div>
+  <div class="bluebillywig-media-thumbnail-flash"></div>
 </div>
