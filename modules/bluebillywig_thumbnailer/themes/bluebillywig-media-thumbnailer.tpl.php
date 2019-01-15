@@ -41,7 +41,7 @@ $qs['title'] = 'hide';
 <div class="<?php print $classes; ?> bluebillywig-media-<?php print $id; ?>">
   <div class="bluebillywig-media-thumbnail-wrapper">
     <?php echo $microdata; ?>
-    <script crossOrigin="Anonymous" src="<?php print $url . (!empty($qs) ? '?' . http_build_query($qs) : '') ?>" type="text/javascript"></script>
+    <script crossOrigin="Anonymous" src="<?php print $url . (!empty($qs) ? '?' . http_build_query($qs) : '') ?>" type="text/javascript" async></script>
   </div>
   <div class="bluebillywig-media-thumbnail-image">
     <div class="bluebillywig-media-thumbnail-image-camera">

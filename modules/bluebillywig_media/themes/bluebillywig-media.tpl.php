@@ -34,5 +34,5 @@ echo $microdata;
 
 ?>
 <div class="<?php print $classes; ?> bluebillywig-media-<?php print $id; ?>">
-  <script src="<?php print $url . (!empty($qs) ? '?' . http_build_query($qs) : '') ?>" type="text/javascript"></script>
+  <script src="<?php print $url . (!empty($qs) ? '?' . http_build_query($qs) : '') ?>" type="text/javascript" async></script>
 </div>
