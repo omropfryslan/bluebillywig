@@ -186,13 +186,13 @@ function bluebillywig_media_get_microdata($id, $playout, $md = TRUE, $og = TRUE)
   );
 
   $hostName = variable_get('bluebillywig_publication_hostname', '');
-  $r = drupal_http_request('https://' . $hostName . '/microdata/?' . http_build_query($qs));
+  $request = drupal_http_request('https://' . $hostName . '/microdata/?' . http_build_query($qs));
 
-  if ($r->code == '200' && !empty($r->data)) {
-    $data = $r->data;
+  if ($request->code == '200' && !empty($request->data)) {
+    $data = $request->data;
 
     // Add json+ld object.
-    if (preg_match_all('/<meta itemprop="(.*)" content="(.*)">/msU', $r->data, $matches)) {
+    if (preg_match_all('/<meta itemprop="(.*)" content="(.*)">/msU', $request->data, $matches)) {
       $json = array(
         '@context' => 'http://schema.org',
         '@type' =>  'VideoObject',
@@ -700,8 +700,17 @@ function bluebillywig_media_file_presave($file) {
     if ($id = bluebillywig_media_get_id($file->uri)) {
       // Get the mediaclip data.
       $item = bluebillywig_executeActionVms('mediaclip', array('id' => $id));
-
       $file->filename = (!empty($item['title']) ? $item['title'] : $item['originalfilename']);
+
+      if (empty($file->metadata['length'])
+        && !empty($item['length'])) {
+        $file->metadata['length'] = $item['length'];
+      }
+
+      if (empty($file->metadata['assets'])
+        && !empty($item['assets'])) {
+        $file->metadata['assets'] = $item['assets'];
+      }
 
       // Check whether it's audio, is so change the types.
       if ($item['mediatype'] == 'audio') {
@@ -736,4 +745,21 @@ function bluebillywig_media_get_id($uri) {
   }
 
   return FALSE;
+}
+
+/**
+ * Implements hook_file_metadata_info().
+ */
+function bluebillywig_file_metadata_info() {
+  $info['length'] = array(
+    'label' => t('Length'),
+    'type' => 'integer'
+  );
+
+  $info['assets'] = array(
+    'label' => t('Assets'),
+    'type' => 'array'
+  );
+
+  return $info;
 }
