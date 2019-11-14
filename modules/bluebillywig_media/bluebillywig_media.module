@@ -570,7 +570,10 @@ function media_bluebillywig_add($form, &$form_state, $types, $multiselect) {
   );
 
   // Add the files to JS so that they are accessible inside the browser.
-  drupal_add_js(array('media' => array('files' => $files)), 'setting');
+  $form['#attached']['js'][] = array(
+    'type' => 'setting',
+    'data' => array('media' => array('files' => $files)),
+  );
 
   // Add media browser javascript and CSS.
   $form['#attached']['js'][] = drupal_get_path('module', 'bluebillywig_media') . '/js/bluebillywig_media.browser.js';
